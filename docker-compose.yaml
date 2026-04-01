@@ -2,7 +2,7 @@ version: "3.9"
 
 services:
   gpsd:
-    image: debian:bookworm-slim
+    image: debian:bookworm-slim  need to test it on raspberry pi
     container_name: gpsd
     devices:
       - "/dev/serial0:/dev/serial0"

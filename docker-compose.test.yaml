@@ -1,0 +1,26 @@
+services:
+  redis:
+    image: redis:7
+    container_name: redis-test
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+  gps-service-mock:
+    build: ./gps-service-sim
+    depends_on:
+      - redis
+    environment:
+      - REDIS_HOST=redis
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    container_name: backend-test
+    depends_on:
+      - redis
+    environment:
+      - REDIS_HOST=redis
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
