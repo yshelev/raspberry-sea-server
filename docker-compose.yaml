@@ -1,0 +1,45 @@
+version: "3.9"
+
+services:
+  gpsd:
+    image: debian:bookworm-slim
+    container_name: gpsd
+    devices:
+      - "/dev/serial0:/dev/serial0"
+    command: >
+      bash -c "
+      apt update &&
+      apt install -y gpsd gpsd-clients &&
+      gpsd -N -D 2 /dev/serial0 -F /var/run/gpsd.sock
+      "
+    restart: unless-stopped
+
+  redis:
+    image: redis:7
+    container_name: redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+  gps-service:
+    build: ./gps-service
+    container_name: gps-service
+    depends_on:
+      - gpsd
+      - redis
+    environment:
+      - GPS_HOST=gpsd
+      - GPS_PORT=2947
+      - REDIS_HOST=redis
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    container_name: backend
+    depends_on:
+      - redis
+    environment:
+      - REDIS_HOST=redis
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
