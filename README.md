@@ -4,7 +4,7 @@
 
 # Тестовый запуск
 ```sh
-docker compose -f docker-compose.test.yaml up -d
+docker compose -f docker compose.test.yaml up -d
 ```
 
 # Реальный запуск (требует /dev/serial0 порта и запуска на raspberry pi)
