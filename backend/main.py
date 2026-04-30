@@ -33,22 +33,34 @@ async def startup():
 async def redis_listener():
     try:
         pubsub = app.state.redis.pubsub()
-        await pubsub.subscribe("gps")
-        logger.info("Subscribed to GPS channel")
-        
+        await pubsub.subscribe("gps", "lag")
+        logger.info("Subscribed to GPS and Lag channel")
+
         async for message in pubsub.listen():
             if message["type"] == "message":
-                data = message["data"]
-                logger.info(f"Received GPS data: {data[:100]}")  # первые 100 символов
-                
+                channel = message["channel"]
+                raw_data = message["data"]
+
+                logger.info(f"[{channel}] {raw_data[:100]}")
+
+                try:
+                    data = json.loads(raw_data)
+                except:
+                    data = raw_data
+
+                payload = {
+                    "type": channel,
+                    "data": data
+                }
+
                 for ws in clients[:]:
                     try:
-                        await ws.send_text(data)
-                        logger.debug(f"Sent to client: {data[:50]}")
+                        await ws.send_text(json.dumps(payload))
                     except Exception as e:
                         logger.error(f"Error sending to client: {e}")
                         if ws in clients:
                             clients.remove(ws)
+
     except Exception as e:
         logger.error(f"Redis listener error: {e}")
 
