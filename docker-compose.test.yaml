@@ -40,14 +40,6 @@ services:
     environment:
       - REDIS_HOST=redis
     restart: unless-stopped
-  wind-processor:
-    build: ./backend
-    container_name: wind-processor
-    depends_on:
-      - redis
-    environment:
-      - REDIS_HOST=redis
-    restart: unless-stopped
 
   backend:
     build: ./backend

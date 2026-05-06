@@ -21,7 +21,6 @@ class LagEmulator:
         self.last_time = time.time()
         self.target_speed = 5.0
 
-        logger.info(f"Lag Emulator started: speed={self.speed_knots} kn")
 
     def update(self):
         now = time.time()
@@ -44,6 +43,7 @@ class LagEmulator:
 
     def get_data(self):
         return {
+            "timestamp": time.time(), 
             "time": datetime.now().isoformat(),
             "speed_knots": round(self.speed_knots, 2),
             "speed_kmh": round(self.speed_knots * 1.852, 2),
@@ -52,7 +52,6 @@ class LagEmulator:
         }
 
 def main():
-    logger.info("Starting Lag Emulator Service")
 
     lag = LagEmulator()
     REDIS_HOST = os.getenv("REDIS_HOST", "redis")
@@ -61,12 +60,10 @@ def main():
     try:
         r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
         r.ping()
-        logger.info("Connected to Redis")
 
         r.publish("lag", json.dumps({"status": "startup"}))
 
     except Exception as e:
-        logger.error(f"Redis error: {e}")
         return
 
     counter = 0
@@ -78,11 +75,6 @@ def main():
             r.publish("lag", json.dumps(data))
 
             counter += 1
-
-            logger.info(
-                f"[#{counter}] Lag: {data['speed_knots']} kn | "
-                f"Total: {data['total_distance_nm']} NM"
-            )
 
             time.sleep(1)
 

@@ -69,13 +69,10 @@ class GPSEmulator:
 
 
 def main():
-    logger.info("Starting GPS Emulator (clean version)")
-
     REDIS_HOST = os.getenv("REDIS_HOST", "redis")
     REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
 
     r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
-    r.ping()
 
     gps = GPSEmulator()
 
@@ -88,13 +85,6 @@ def main():
             r.publish("gps", json.dumps(data))
 
             counter += 1
-
-            logger.info(
-                f"[#{counter}] "
-                f"lat={data['lat']} lon={data['lon']} "
-                f"speed={data['speed_kmh']} km/h "
-                f"track={data['track']}°"
-            )
 
             time.sleep(1)
 

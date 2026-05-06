@@ -59,8 +59,6 @@ def main():
 
             counter += 1
 
-            logger.info(f"[#{counter}] depth={data['depth_m']} m")
-
             time.sleep(1)
 
     except KeyboardInterrupt:

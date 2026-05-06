@@ -1,7 +1,5 @@
-import redis
 import json
 import math
-import os
 import time
 import logging
 
@@ -11,34 +9,19 @@ logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
-logger = logging.getLogger("wind-processor")
-
-
-REDIS_HOST = os.getenv("REDIS_HOST", "redis")
-REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
+logger = logging.getLogger("wind processor")
 
 MAX_TIME_DELTA = 2.0  # сек
 
 
 class WindProcessor:
     def __init__(self):
+        logger.info("qweqrwq")
         self.latest = {
             "gps": None,
             "lag": None,
             "wind": None
         }
-
-        self.redis = redis.Redis(
-            host=REDIS_HOST,
-            port=REDIS_PORT,
-            decode_responses=True
-        )
-
-        self.pubsub = self.redis.pubsub()
-
-    def subscribe(self):
-        self.pubsub.subscribe("gps", "lag", "wind")
-        logger.info("Subscribed to gps, lag, wind channels")
 
     def normalize_angle(self, angle):
         """
@@ -50,6 +33,8 @@ class WindProcessor:
         """
         Проверяем что все данные достаточно свежие
         """
+        logger.info(json.dumps(self.latest))
+
         if not all(self.latest.values()):
             return False
 
@@ -58,8 +43,20 @@ class WindProcessor:
             self.latest["lag"]["timestamp"],
             self.latest["wind"]["timestamp"]
         ]
+        
+        logger.info(str([str(ts) for ts in timestamps]))
 
         return max(timestamps) - min(timestamps) <= MAX_TIME_DELTA
+
+    def update_data(self, key, data): 
+        logger.info(f"{key} {data}")
+        logger.info(json.dumps(self.latest))
+        if self.latest.get(key, -1) == -1: 
+            return 
+        
+        self.latest[key] = data
+        if self.is_synced(): 
+            return self.calculate_true_wind()
 
     def calculate_true_wind(self):
         gps = self.latest["gps"]
@@ -91,6 +88,13 @@ class WindProcessor:
         twa = self.normalize_angle(twa)
 
         true_wind_direction = (heading + twa) % 360
+        
+        logger.info(str({
+            "timestamp": time.time(),
+            "tws": round(tws, 2),
+            "twa": round(twa, 2),
+            "twd": round(true_wind_direction, 2)
+        }))
 
         return {
             "timestamp": time.time(),
@@ -98,60 +102,3 @@ class WindProcessor:
             "twa": round(twa, 2),
             "twd": round(true_wind_direction, 2)
         }
-
-    def process_message(self, channel, data):
-        try:
-            parsed = json.loads(data)
-
-            if "timestamp" not in parsed:
-                logger.warning(f"{channel} missing timestamp")
-                return
-
-            self.latest[channel] = parsed
-
-            logger.info(f"Updated {channel}")
-
-            if self.is_synced():
-                result = self.calculate_true_wind()
-
-                self.redis.publish(
-                    "true_wind",
-                    json.dumps(result)
-                )
-
-                logger.info(
-                    f"TWS={result['tws']} kn | "
-                    f"TWA={result['twa']}° | "
-                    f"TWD={result['twd']}°"
-                )
-            else:
-                logger.info("Waiting for synchronized sensor data...")
-
-        except Exception as e:
-            logger.error(f"Processing error: {e}")
-
-    def run(self):
-        self.subscribe()
-
-        logger.info("Wind processor started")
-
-        for message in self.pubsub.listen():
-            if message["type"] != "message":
-                continue
-
-            channel = message["channel"]
-            data = message["data"]
-
-            self.process_message(channel, data)
-
-
-def main():
-    try:
-        processor = WindProcessor()
-        processor.run()
-    except KeyboardInterrupt:
-        logger.info("Wind processor stopped")
-
-
-if __name__ == "__main__":
-    main()

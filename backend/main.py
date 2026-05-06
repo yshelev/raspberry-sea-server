@@ -5,9 +5,12 @@ import asyncio
 import os
 import json
 import logging
+from wind_processor import WindProcessor
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+wind_service = WindProcessor()
 
 app = FastAPI()
 
@@ -38,10 +41,11 @@ async def redis_listener():
 
         async for message in pubsub.listen():
             if message["type"] == "message":
+                logger.info(f"[123] {message}")
                 channel = message["channel"]
                 raw_data = message["data"]
 
-                logger.info(f"[{channel}] {raw_data[:100]}")
+                # logger.info(f"[{channel}] {raw_data[:100]}")
 
                 try:
                     data = json.loads(raw_data)
@@ -60,7 +64,24 @@ async def redis_listener():
                         logger.error(f"Error sending to client: {e}")
                         if ws in clients:
                             clients.remove(ws)
-
+                
+                true_wind_data = wind_service.update_data(channel, data)
+                if not true_wind_data: 
+                    continue 
+                
+                payload = {
+                    "type": "true_wind",
+                    "data": true_wind_data
+                }
+                
+                for ws in clients[:]:
+                    try:
+                        await ws.send_text(json.dumps(payload))
+                    except Exception as e:
+                        logger.error(f"Error sending to client: {e}")
+                        if ws in clients:
+                            clients.remove(ws)
+                
     except Exception as e:
         logger.error(f"Redis listener error: {e}")
 

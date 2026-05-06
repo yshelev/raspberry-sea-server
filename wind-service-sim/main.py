@@ -37,6 +37,7 @@ class WindEmulator:
         self.update()
 
         return {
+            "timestamp": time.time(), 
             "time": datetime.now().isoformat(),
             "aws": round(self.aws, 2),
             "awa": round(self.awa, 2),
@@ -58,7 +59,6 @@ def main():
 
     counter = 0
 
-    logger.info("Wind service simulator started")
 
     while True:
         try:
@@ -68,14 +68,9 @@ def main():
 
             counter += 1
 
-            logger.info(
-                f"[{counter}] AWS={data['aws']} kn | AWA={data['awa']}°"
-            )
-
             time.sleep(1)
 
         except Exception as e:
-            logger.error(f"error: {e}")
             time.sleep(1)
 
 
