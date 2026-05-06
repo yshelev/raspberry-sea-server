@@ -43,8 +43,6 @@ class WindProcessor:
             self.latest["lag"]["timestamp"],
             self.latest["wind"]["timestamp"]
         ]
-        
-        logger.info(str([str(ts) for ts in timestamps]))
 
         return max(timestamps) - min(timestamps) <= MAX_TIME_DELTA
 
@@ -88,13 +86,6 @@ class WindProcessor:
         twa = self.normalize_angle(twa)
 
         true_wind_direction = (heading + twa) % 360
-        
-        logger.info(str({
-            "timestamp": time.time(),
-            "tws": round(tws, 2),
-            "twa": round(twa, 2),
-            "twd": round(true_wind_direction, 2)
-        }))
 
         return {
             "timestamp": time.time(),
