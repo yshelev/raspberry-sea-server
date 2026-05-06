@@ -23,6 +23,32 @@ services:
       - REDIS_HOST=redis
     restart: unless-stopped
 
+  wind-service-mock:
+    build: ./wind-service-sim
+    container_name: wind-service-mock
+    depends_on:
+      - redis
+    environment:
+      - REDIS_HOST=redis
+    restart: unless-stopped
+
+  depth-service-mock:
+    build: ./depth-service-sim
+    container_name: depth-service-mock
+    depends_on:
+      - redis
+    environment:
+      - REDIS_HOST=redis
+    restart: unless-stopped
+  wind-processor:
+    build: ./backend
+    container_name: wind-processor
+    depends_on:
+      - redis
+    environment:
+      - REDIS_HOST=redis
+    restart: unless-stopped
+
   backend:
     build: ./backend
     container_name: backend-test

@@ -33,8 +33,8 @@ async def startup():
 async def redis_listener():
     try:
         pubsub = app.state.redis.pubsub()
-        await pubsub.subscribe("gps", "lag")
-        logger.info("Subscribed to GPS and Lag channel")
+        await pubsub.subscribe("gps", "lag", "wind", "depth", "true_wind")
+        logger.info("Subscribed to GPS,Lag and Wind channels")
 
         async for message in pubsub.listen():
             if message["type"] == "message":
