@@ -1,0 +1,10 @@
+CREATE TABLE IF NOT EXISTS polar_diagram_data (
+    id BIGSERIAL PRIMARY KEY,
+
+    ts TIMESTAMP NOT NULL DEFAULT NOW(),
+
+    tws DOUBLE PRECISION,
+    twa DOUBLE PRECISION,
+
+    boat_speed DOUBLE PRECISION,
+);

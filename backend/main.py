@@ -1,3 +1,4 @@
+import asyncpg
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 import redis.asyncio as redis
@@ -64,16 +65,16 @@ async def redis_listener():
                         logger.error(f"Error sending to client: {e}")
                         if ws in clients:
                             clients.remove(ws)
-                
+
                 true_wind_data = wind_service.update_data(channel, data)
-                if not true_wind_data: 
-                    continue 
-                
+                if not true_wind_data:
+                    continue
+
                 payload = {
                     "type": "true_wind",
                     "data": true_wind_data
                 }
-                
+
                 for ws in clients[:]:
                     try:
                         await ws.send_text(json.dumps(payload))
@@ -81,7 +82,7 @@ async def redis_listener():
                         logger.error(f"Error sending to client: {e}")
                         if ws in clients:
                             clients.remove(ws)
-                
+
     except Exception as e:
         logger.error(f"Redis listener error: {e}")
 
@@ -91,20 +92,20 @@ async def websocket_endpoint(ws: WebSocket):
     await ws.accept()
     clients.append(ws)
     logger.info(f"Client connected. Total clients: {len(clients)}")
-    
+
     try:
         while True:
             # Получаем сообщение от клиента с таймаутом
             try:
                 data = await asyncio.wait_for(ws.receive_text(), timeout=60.0)
                 logger.info(f"Received from client: {data}")
-                
+
                 # Отправляем подтверждение
                 await ws.send_text(json.dumps({"status": "ok", "message": "received"}))
             except asyncio.TimeoutError:
                 # Таймаут - просто продолжаем слушать
                 continue
-                
+
     except Exception as e:
         logger.error(f"WebSocket error: {e}")
     finally:
@@ -121,3 +122,60 @@ async def root():
 @app.get("/health")
 async def health():
     return {"status": "ok", "clients": len(clients)}
+
+
+class SQLManager:
+    def __init__(self):
+        self.host = "sailing-postgres"
+        self.port = 5432
+        self.user = "sail"
+        self.password = "sailpass"
+        self.database = "sailing"
+
+    async def create_connection(self):
+        return await  asyncpg.connect(
+            host=self.host,
+            port=self.port,
+            user=self.user,
+            password=self.password,
+            database=self.database
+        )
+
+    async def fetch_data(self):
+        connection = await self.create_connection()
+
+        try:
+            rows = await connection.fetch("SELECT * FROM polar_diagram_data;")
+
+        finally:
+            await connection.close()
+        return rows
+
+    async def add_data(self, tws, twa, boat_speed):
+        connection = await self.create_connection()
+
+        try:
+            rows = await connection.execute(f"INSERT INTO polar_diagram_data (tws, twa, boat_speed)"
+                                            f" VALUES ({tws}, {twa}, {boat_speed});")
+
+        finally:
+            await connection.close()
+        return rows
+
+
+class PolarMapSystem:
+    def __init__(self):
+        self.tws = None
+        self.twa = None
+        self.boat_speed = None
+        self.initialized = False
+        self.threshold = 26.5
+        self.SQLManager = SQLManager()
+
+    def validate(self, depth):
+        if depth > self.threshold:
+            self.initialized = True
+
+    def add_field(self):
+        if self.initialized:
+            self.SQLManager.add_data(self.tws, self.twa, self.boat_speed)
