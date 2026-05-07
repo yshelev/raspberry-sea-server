@@ -6,12 +6,14 @@ import asyncio
 import os
 import json
 import logging
-from wind_processor import WindProcessor
+from services.wind_service import WindProcessor
+from services.polar_map_service import PolarMapService
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 wind_service = WindProcessor()
+polarMapService = PolarMapService()
 
 app = FastAPI()
 
@@ -95,15 +97,12 @@ async def websocket_endpoint(ws: WebSocket):
 
     try:
         while True:
-            # Получаем сообщение от клиента с таймаутом
             try:
                 data = await asyncio.wait_for(ws.receive_text(), timeout=60.0)
                 logger.info(f"Received from client: {data}")
 
-                # Отправляем подтверждение
                 await ws.send_text(json.dumps({"status": "ok", "message": "received"}))
             except asyncio.TimeoutError:
-                # Таймаут - просто продолжаем слушать
                 continue
 
     except Exception as e:
@@ -123,59 +122,3 @@ async def root():
 async def health():
     return {"status": "ok", "clients": len(clients)}
 
-
-class SQLManager:
-    def __init__(self):
-        self.host = "sailing-postgres"
-        self.port = 5432
-        self.user = "sail"
-        self.password = "sailpass"
-        self.database = "sailing"
-
-    async def create_connection(self):
-        return await  asyncpg.connect(
-            host=self.host,
-            port=self.port,
-            user=self.user,
-            password=self.password,
-            database=self.database
-        )
-
-    async def fetch_data(self):
-        connection = await self.create_connection()
-
-        try:
-            rows = await connection.fetch("SELECT * FROM polar_diagram_data;")
-
-        finally:
-            await connection.close()
-        return rows
-
-    async def add_data(self, tws, twa, boat_speed):
-        connection = await self.create_connection()
-
-        try:
-            rows = await connection.execute(f"INSERT INTO polar_diagram_data (tws, twa, boat_speed)"
-                                            f" VALUES ({tws}, {twa}, {boat_speed});")
-
-        finally:
-            await connection.close()
-        return rows
-
-
-class PolarMapSystem:
-    def __init__(self):
-        self.tws = None
-        self.twa = None
-        self.boat_speed = None
-        self.initialized = False
-        self.threshold = 26.5
-        self.SQLManager = SQLManager()
-
-    def validate(self, depth):
-        if depth > self.threshold:
-            self.initialized = True
-
-    def add_field(self):
-        if self.initialized:
-            self.SQLManager.add_data(self.tws, self.twa, self.boat_speed)
