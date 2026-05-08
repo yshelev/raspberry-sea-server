@@ -32,9 +32,4 @@ class PolarMapService:
             return  
         
         self.all_fields_ready_to_write[module_name] = True
-        if module_name == "tws": 
-            self.tws = value
-        if module_name == "twa": 
-            self.twa = value
-        if module_name == "boat_speed": 
-            self.boat_speed = value
+        setattr(self, module_name, value)
