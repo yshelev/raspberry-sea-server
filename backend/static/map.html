@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Azimut map</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <script src="https://api-maps.yandex.ru/v3/?apikey=1afe9174-eb51-47c6-b797-037a783e0873&lang=ru_RU"></script>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: monospace;
+      }
+      #map {
+        width: 100%;
+        height: 100vh;
+      }
+      .data-panel {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        z-index: 1000;
+        background: rgba(0, 0, 0, 0.8);
+        backdrop-filter: blur(10px);
+        border-radius: 10px;
+        padding: 15px;
+        color: white;
+        min-width: 250px;
+        font-size: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        font-family: monospace;
+      }
+      .data-panel h3 {
+        margin: 0 0 10px 0;
+        font-size: 14px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+        padding-bottom: 5px;
+      }
+      .data-panel .data-row {
+        margin-bottom: 8px;
+      }
+      .data-panel .label {
+        color: #aaa;
+        display: inline-block;
+        width: 80px;
+      }
+      .data-panel .value {
+        color: #4ade80;
+        font-weight: bold;
+      }
+      .status {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        z-index: 1000;
+        padding: 8px 15px;
+        border-radius: 5px;
+        font-weight: bold;
+        font-size: 12px;
+        font-family: monospace;
+      }
+      .connected {
+        background: #0a5c2e;
+        color: #fff;
+      }
+      .disconnected {
+        background: #5c0a0a;
+        color: #fff;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="map" style="width: 100%; height: 100vh;"></div>
+    
+    <div class="data-panel">
+      <h3>⛵ Sailing Data</h3>
+      <div class="data-row">
+        <span class="label">GPS:</span>
+        <span class="value" id="gpsData">Waiting...</span>
+      </div>
+      <div class="data-row">
+        <span class="label">Wind:</span>
+        <span class="value" id="windData">Waiting...</span>
+      </div>
+      <div class="data-row">
+        <span class="label">True Wind:</span>
+        <span class="value" id="trueWindData">Waiting...</span>
+      </div>
+      <div class="data-row">
+        <span class="label">Depth:</span>
+        <span class="value" id="depthData">Waiting...</span>
+      </div>
+      <div class="data-row">
+        <span class="label">Lag:</span>
+        <span class="value" id="lagData">Waiting...</span>
+      </div>
+    </div>
+    
+    <div id="status" class="status disconnected">Disconnected</div>
+
+    <script>
+      const VLADIDOSTOK = [131.91523178522812, 43.123237734648214];
+      let lineFeature = null;
+      let points = [];
+      let ws = null;
+      let boatMarker = null;
+
+      function connectWebSocket() {
+          const wsUrl = `ws://localhost:8000/ws`;
+          ws = new WebSocket(wsUrl);
+          
+          ws.onopen = () => {
+              console.log('Connected');
+              document.getElementById('status').className = 'status connected';
+              document.getElementById('status').textContent = 'Connected ✓';
+          };
+          
+          ws.onmessage = (event) => {
+              try {
+                  const data = JSON.parse(event.data);
+                  console.log('Received:', data);
+                  
+                  if (data.type === 'gps') {
+                      const gps = data.data;
+                      document.getElementById('gpsData').innerHTML = 
+                          `${gps.latitude?.toFixed(6) || '?'}°, ${gps.longitude?.toFixed(6) || '?'}°`;
+                      
+                      if (gps.longitude && gps.latitude) {
+                          updateBoatMarker([gps.longitude, gps.latitude]);
+                      }
+                  } else if (data.type === 'wind') {
+                      const wind = data.data;
+                      document.getElementById('windData').innerHTML = 
+                          `${wind.aws || 0} м/с, ${wind.direction || 0}°`;
+                  } else if (data.type === 'true_wind') {
+                      const trueWind = data.data;
+                      document.getElementById('trueWindData').innerHTML = 
+                          `${trueWind.speed?.toFixed(1) || 0} м/с, ${trueWind.direction?.toFixed(0) || 0}°`;
+                  } else if (data.type === 'depth') {
+                      const depth = data.data;
+                      document.getElementById('depthData').innerHTML = 
+                          `${depth.depth || 0} м`;
+                  } else if (data.type === 'lag') {
+                      const lag = data.data;
+                      document.getElementById('lagData').innerHTML = 
+                          `${lag.speed || 0} узлов`;
+                  }
+              } catch (error) {
+                  console.error('Error parsing message:', error);
+              }
+          };
+          
+          ws.onerror = (error) => {
+              console.error('WebSocket error:', error);
+              document.getElementById('status').className = 'status disconnected';
+              document.getElementById('status').textContent = 'Error ✗';
+          };
+          
+          ws.onclose = () => {
+              console.log('Disconnected');
+              document.getElementById('status').className = 'status disconnected';
+              document.getElementById('status').textContent = 'Disconnected ✗';
+              ws = null;
+              
+              setTimeout(connectWebSocket, 3000);
+          };
+      }
+
+      async function updateBoatMarker(coordinates) {
+          await ymaps3.ready;
+          const { YMapDefaultMarker } = await ymaps3.import('@yandex/ymaps3-default-ui-theme');
+          
+          if (boatMarker) {
+              map.removeChild(boatMarker);
+          }
+          
+          boatMarker = new YMapDefaultMarker({
+              coordinates: coordinates,
+              color: 'red',
+              size: 'large',
+              draggable: false
+          });
+          map.addChild(boatMarker);
+      }
+
+      async function main() {
+          await ymaps3.ready;
+
+          const {
+              YMap, 
+              YMapListener, 
+              YMapDefaultSchemeLayer, 
+              YMapDefaultFeaturesLayer, 
+              YMapControls, 
+              YMapControlButton,
+              YMapFeature
+          } = ymaps3;
+
+          ymaps3.import.registerCdn('https://cdn.jsdelivr.net/npm/{package}', [
+              '@yandex/ymaps3-default-ui-theme@latest',
+              '@yandex/ymaps3-hint@latest'
+          ]);
+
+          const {YMapDefaultMarker} = await ymaps3.import('@yandex/ymaps3-default-ui-theme');
+
+          window.map = new YMap(
+              document.getElementById('map'),
+              {
+                  location: {
+                      center: VLADIDOSTOK,
+                      zoom: 10
+                  }
+              }
+          );
+
+          map.addChild(new YMapDefaultSchemeLayer());
+          map.addChild(new YMapDefaultFeaturesLayer());
+
+          function updateLine() {
+              if (lineFeature) {
+                  map.removeChild(lineFeature);
+              }
+              
+              if (points.length >= 2) {
+                  lineFeature = new YMapFeature({
+                      id: 'line',
+                      geometry: {
+                          type: 'LineString',
+                          coordinates: points.map(p => p.coordinates)
+                      },
+                      style: {
+                          stroke: [{width: 3, color: '#74ACFC', opacity: 0.7}]
+                      }
+                  });
+                  map.addChild(lineFeature);
+              }
+          }
+
+          function addPoint(coordinates) {
+              const marker = new YMapDefaultMarker({
+                  coordinates: coordinates,
+                  color: 'white',
+                  size: 'micro',
+                  draggable: true
+              });
+              
+              points.push({marker, coordinates});
+              map.addChild(marker);
+              
+              updateLine();
+              
+              return marker;
+          }
+
+          const clickHandler = async (object, data) => {
+              console.log(object);
+              console.log(data);
+              if (points.length == 0 || points[points.length - 1].coordinates != object?.entity?.coordinates) {
+                  addPoint(data.coordinates);
+              }
+          };
+
+          const dragHandler = (object, data) => {
+              if (object?.type == 'marker') {
+                  const markerIndex = points.findIndex(p => p.marker === object.entity);
+                  if (markerIndex !== -1) {
+                      points[markerIndex].coordinates = data.coordinates;
+                      updateLine();
+                  }
+              }
+          };
+
+          const controls = new YMapControls({position: 'top right'});
+          
+          const center_button = new YMapControlButton({
+              text: 'Владивосток',
+              onClick: () => {
+                  map.setLocation({
+                      center: VLADIDOSTOK,
+                      zoom: 10
+                  });
+              }
+          });
+          
+          const clear_button = new YMapControlButton({
+              text: 'Очистить',
+              onClick: () => {
+                  points.forEach(p => {
+                      map.removeChild(p.marker);
+                  });
+                  points = [];
+
+                  if (lineFeature) {
+                      map.removeChild(lineFeature);
+                      lineFeature = null;
+                  }
+              }
+          });
+          
+          controls.addChild(center_button);
+          controls.addChild(clear_button);
+          
+          map.addChild(new YMapListener({
+              layer: 'any',
+              onClick: clickHandler,
+              onPointerMove: dragHandler
+          }));
+
+          map.addChild(controls);
+          
+          connectWebSocket();
+      }
+
+      main();
+    </script>
+  </body>
+</html>

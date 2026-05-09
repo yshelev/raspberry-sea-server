@@ -4,7 +4,7 @@
 
 # Тестовый запуск
 ```sh
-docker compose -f docker compose.test.yaml up -d
+docker compose -f docker-compose.test.yaml up -d
 ```
 
 # Реальный запуск (требует /dev/serial0 порта и запуска на raspberry pi)
@@ -12,13 +12,9 @@ docker compose -f docker compose.test.yaml up -d
 docker compose up 
 ```
 
-# Тест сокета
-в root директории выполнить: 
-```sh
-python -m http.server 8080
-```
-
-перейти на http://localhost:8080
-
-(предварительно запустив докер контейнеры)
+# Эндпоинты FastAPI
+**localhost:8000**
+- **GET** [`/`](http://localhost:8000/) - состояние
+- **GET** [`/ws`](http://localhost:8000/ws) - вебсокет
+- **GET** [`/map`](http://localhost:8000/map) - карта
 
