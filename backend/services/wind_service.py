@@ -97,7 +97,7 @@ class WindProcessor:
         return {
             "timestamp": time.time(),
             "tws": round(tws, 2),
-            "twa": round(twa, 2),
+            "twa": round(twa),
             "twd": round(true_wind_direction, 2),
             "boat_speed": round(boat_speed, 2),
         }

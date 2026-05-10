@@ -2,7 +2,6 @@ import time
 import json
 import redis
 import random
-import math
 import os
 import logging
 from datetime import datetime
@@ -15,7 +14,7 @@ class WindEmulator:
 
     def __init__(self):
         self.aws = 10.0  # apparent wind speed
-        self.awa = 10  # apparent wind angle
+        self.awa = 90  # apparent wind angle
 
     def update(self):
         # турбулентность ветра
@@ -36,11 +35,9 @@ class WindEmulator:
             "timestamp": time.time(), 
             "time": datetime.now().isoformat(),
             "aws": round(self.aws, 2),
-            "awa": round(self.awa, 2),
+            "awa": round(self.awa),
             "status": "ok"
         }
-
-
 def main():
     REDIS_HOST = os.getenv("REDIS_HOST", "redis")
     REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
