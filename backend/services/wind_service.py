@@ -12,6 +12,7 @@ logging.basicConfig(
 logger = logging.getLogger("wind processor")
 
 MAX_TIME_DELTA = 2.0  # сек
+DEAD_ZONE = 30
 
 
 class WindProcessor:
@@ -25,9 +26,9 @@ class WindProcessor:
 
     def normalize_angle(self, angle):
         """
-        Приводим угол к диапазону [-180, 180]
+        Приводим угол к диапазону [0, 360]
         """
-        return (angle + 180) % 360 - 180
+        return angle % 360
 
     def is_synced(self):
         """
@@ -56,6 +57,9 @@ class WindProcessor:
         if self.is_synced(): 
             return self.calculate_true_wind()
 
+    def is_dead_zone(self, twa):
+        return twa < DEAD_ZONE or twa > (360 - DEAD_ZONE)
+
     def calculate_true_wind(self):
         gps = self.latest["gps"]
         lag = self.latest["lag"]
@@ -77,8 +81,8 @@ class WindProcessor:
         boat_y = boat_speed
 
         # true wind vector
-        tw_x = aw_x + boat_x
-        tw_y = aw_y + boat_y
+        tw_x = aw_x - boat_x
+        tw_y = aw_y - boat_y
 
         tws = math.sqrt(tw_x**2 + tw_y**2)
 
@@ -86,6 +90,9 @@ class WindProcessor:
         twa = self.normalize_angle(twa)
 
         true_wind_direction = (heading + twa) % 360
+
+        if self.is_dead_zone(twa):
+            return None
 
         return {
             "timestamp": time.time(),

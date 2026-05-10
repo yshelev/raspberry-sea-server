@@ -15,7 +15,7 @@ class WindEmulator:
 
     def __init__(self):
         self.aws = 10.0  # apparent wind speed
-        self.awa = 0.0  # apparent wind angle
+        self.awa = 10  # apparent wind angle
 
     def update(self):
         # турбулентность ветра

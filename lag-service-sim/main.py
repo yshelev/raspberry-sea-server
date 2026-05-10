@@ -27,11 +27,11 @@ class LagEmulator:
         dt = now - self.last_time
         self.last_time = now
 
-        if random.random() < 0.05:
-            self.target_speed += random.uniform(-2, 2)
-            self.target_speed = max(0, self.target_speed)
+        if random.random() < 0.08:
+            self.target_speed += random.uniform(-4, 4)
+            self.target_speed = max(0, min(15, self.target_speed))
 
-        self.speed_knots += (self.target_speed - self.speed_knots) * 0.1
+        self.speed_knots += (self.target_speed - self.speed_knots) * 0.03
 
         distance = self.speed_knots * dt / 3600
 
