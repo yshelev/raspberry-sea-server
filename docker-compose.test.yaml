@@ -45,7 +45,10 @@ services:
     build: ./backend
     container_name: backend-test
     depends_on:
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
     environment:
       - REDIS_HOST=redis
     ports:
@@ -66,9 +69,16 @@ services:
       - "5432:5432"
 
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - pgdata2:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U sail -d sailing" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
 
 volumes:
-  pgdata:
+  pgdata2:
 

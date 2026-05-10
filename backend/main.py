@@ -13,7 +13,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 wind_service = WindProcessor()
-polarMapService = PolarMapService()
+polar_map_service = PolarMapService()
 
 app = FastAPI()
 
@@ -52,6 +52,8 @@ async def redis_listener():
 
                 try:
                     data = json.loads(raw_data)
+                    if "depth_m" in data:
+                        polar_map_service.initialize(data["depth_m"])
                 except:
                     data = raw_data
 
@@ -69,8 +71,16 @@ async def redis_listener():
                             clients.remove(ws)
 
                 true_wind_data = wind_service.update_data(channel, data)
+
                 if not true_wind_data:
                     continue
+
+                polar_map_service.set_module("tws", true_wind_data["tws"])
+                polar_map_service.set_module("twa", true_wind_data["twa"])
+                polar_map_service.set_module("boat_speed", true_wind_data["boat_speed"])
+
+                await polar_map_service.add_field()
+
 
                 payload = {
                     "type": "true_wind",

@@ -6,5 +6,5 @@ CREATE TABLE IF NOT EXISTS polar_diagram_data (
     tws DOUBLE PRECISION,
     twa DOUBLE PRECISION,
 
-    boat_speed DOUBLE PRECISION,
+    boat_speed DOUBLE PRECISION
 );

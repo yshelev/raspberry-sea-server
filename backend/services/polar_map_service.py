@@ -1,4 +1,9 @@
 from sql_manager import SQLManager
+import logging
+
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 class PolarMapService:
     def __init__(self):
@@ -6,30 +11,20 @@ class PolarMapService:
         self.twa = None
         self.boat_speed = None
         self.initialized = False
-        self.threshold = 26.5
+        self.threshold = 5
         self.SQLManager = SQLManager()
-        self.all_fields_ready_to_write = {
-            "twa": False, 
-            "tws": False, 
-            "boat_speed": False
-        }
+        self.wind_bins_step = 2
 
     def initialize(self, depth):
         if depth > self.threshold:
+            logger.info("initialized")
             self.initialized = True
 
-    def add_field(self):
-        if self.initialized and self.is_data_ready():
-            self.SQLManager.add_data(self.tws, self.twa, self.boat_speed)
-            for key in self.all_fields_ready_to_write.keys(): 
-                self.all_fields_ready_to_write[key] = False
-        
-    def is_data_ready(self): 
-        return all(self.all_fields_ready_to_write.values())
-        
+    async def add_field(self):
+        if self.initialized and self.twa:
+            await self.SQLManager.add_data(self.tws, self.twa, self.boat_speed)
+
     def set_module(self, module_name: str, value: float):
-        if self.all_fields_ready_to_write.get(module_name, -1) == -1: 
-            return  
-        
-        self.all_fields_ready_to_write[module_name] = True
+        if module_name == "tws":
+            value = round(value / self.wind_bins_step) * self.wind_bins_step
         setattr(self, module_name, value)
