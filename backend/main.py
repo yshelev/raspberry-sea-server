@@ -1,5 +1,7 @@
 import asyncpg
 from fastapi import FastAPI, WebSocket
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 import redis.asyncio as redis
 import asyncio
@@ -25,9 +27,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
 clients = []
 REDIS_HOST = os.getenv("REDIS_HOST", "redis")
-
 
 @app.on_event("startup")
 async def startup():
@@ -127,8 +130,12 @@ async def websocket_endpoint(ws: WebSocket):
 async def root():
     return {"message": "GPS Server is running", "clients": len(clients)}
 
+@app.get("/ws", response_class=HTMLResponse)
+async def serve_map():
+    with open("static/ws.html", "r", encoding="utf-8") as f:
+        return f.read()
 
-@app.get("/health")
-async def health():
-    return {"status": "ok", "clients": len(clients)}
-
+@app.get("/map", response_class=HTMLResponse)
+async def serve_map():
+    with open("static/map.html", "r", encoding="utf-8") as f:
+        return f.read()
