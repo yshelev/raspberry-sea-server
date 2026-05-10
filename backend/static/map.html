@@ -24,8 +24,8 @@
         border-radius: 10px;
         padding: 15px;
         color: white;
-        min-width: 250px;
-        font-size: 12px;
+        min-width: 230px;
+        font-size: 13px;
         border: 1px solid rgba(255, 255, 255, 0.2);
         font-family: monospace;
       }
@@ -49,22 +49,17 @@
       }
       .status {
         position: absolute;
-        top: 20px;
-        right: 20px;
+        top: 206px;
+        left: 20px;
         z-index: 1000;
         padding: 8px 15px;
-        border-radius: 5px;
+        backdrop-filter: blur(10px);
+        border-radius: 10px;
         font-weight: bold;
-        font-size: 12px;
+        font-size: 14px;
         font-family: monospace;
-      }
-      .connected {
-        background: #0a5c2e;
-        color: #fff;
-      }
-      .disconnected {
-        background: #5c0a0a;
-        color: #fff;
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
       }
     </style>
   </head>
@@ -73,7 +68,7 @@
     <div id="map" style="width: 100%; height: 100vh;"></div>
     
     <div class="data-panel">
-      <h3>⛵ Sailing Data</h3>
+      <h3>Sailing Data</h3>
       <div class="data-row">
         <span class="label">GPS:</span>
         <span class="value" id="gpsData">Waiting...</span>
@@ -118,15 +113,15 @@
           ws.onmessage = (event) => {
               try {
                   const data = JSON.parse(event.data);
-                  console.log('Received:', data);
+                //   console.log('Received:', data);
                   
                   if (data.type === 'gps') {
                       const gps = data.data;
                       document.getElementById('gpsData').innerHTML = 
-                          `${gps.latitude?.toFixed(6) || '?'}°, ${gps.longitude?.toFixed(6) || '?'}°`;
+                          `${gps.lat?.toFixed(6) || '?'}°, ${gps.lon?.toFixed(6) || '?'}°`;
                       
-                      if (gps.longitude && gps.latitude) {
-                          updateBoatMarker([gps.longitude, gps.latitude]);
+                      if (gps.lon && gps.lat) {
+                          updateBoatMarker([gps.lon, gps.lat]);
                       }
                   } else if (data.type === 'wind') {
                       const wind = data.data;
@@ -135,15 +130,15 @@
                   } else if (data.type === 'true_wind') {
                       const trueWind = data.data;
                       document.getElementById('trueWindData').innerHTML = 
-                          `${trueWind.speed?.toFixed(1) || 0} м/с, ${trueWind.direction?.toFixed(0) || 0}°`;
+                          `${trueWind.tws?.toFixed(1) || 0} м/с, ${trueWind.twd?.toFixed(0) || 0}°`;
                   } else if (data.type === 'depth') {
                       const depth = data.data;
                       document.getElementById('depthData').innerHTML = 
-                          `${depth.depth || 0} м`;
+                          `${depth.depth_m || 0} м`;
                   } else if (data.type === 'lag') {
                       const lag = data.data;
                       document.getElementById('lagData').innerHTML = 
-                          `${lag.speed || 0} узлов`;
+                          `${lag.speed_knots || 0} узлов`;
                   }
               } catch (error) {
                   console.error('Error parsing message:', error);
@@ -177,8 +172,7 @@
           boatMarker = new YMapDefaultMarker({
               coordinates: coordinates,
               color: 'red',
-              size: 'large',
-              draggable: false
+              size: 'micro'
           });
           map.addChild(boatMarker);
       }
@@ -244,7 +238,7 @@
                   draggable: true
               });
               
-              points.push({marker, coordinates});
+              points.push(marker);
               map.addChild(marker);
               
               updateLine();
@@ -253,20 +247,25 @@
           }
 
           const clickHandler = async (object, data) => {
-              console.log(object);
-              console.log(data);
+            //   console.log(object);
+            //   console.log(data);
               if (points.length == 0 || points[points.length - 1].coordinates != object?.entity?.coordinates) {
                   addPoint(data.coordinates);
               }
           };
 
           const dragHandler = (object, data) => {
+            //   console.log(object);
+            //   console.log(data);
               if (object?.type == 'marker') {
-                  const markerIndex = points.findIndex(p => p.marker === object.entity);
-                  if (markerIndex !== -1) {
-                      points[markerIndex].coordinates = data.coordinates;
-                      updateLine();
-                  }
+                // console.log();
+                  const markerIndex = points.findIndex(p => p.coordinates == object.entity.coordinates);
+                //   console.log(markerIndex);
+                  updateLine();
+                //   if (markerIndex !== -1) {
+                //       points[markerIndex].coordinates = data.coordinates;
+                //       updateLine();
+                //   }
               }
           };
 
