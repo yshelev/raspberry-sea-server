@@ -285,7 +285,7 @@
               text: 'Очистить',
               onClick: () => {
                   points.forEach(p => {
-                      map.removeChild(p.marker);
+                      map.removeChild(p);
                   });
                   points = [];
 
