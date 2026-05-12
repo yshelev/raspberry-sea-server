@@ -4,6 +4,6 @@ WORKDIR /app
 
 COPY . .
 
-RUN pip install fastapi uvicorn[standard] redis websockets asyncpg
+RUN pip install fastapi uvicorn[standard] redis websockets asyncpg matplotlib
 
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
