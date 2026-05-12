@@ -1,4 +1,4 @@
-from backend.services.sql_service import SQLManager
+from services.sql_service import SQLManager
 from services.graph_service import GraphService
 from models.PolarSystemPoint import PolarSystemPoint
 import logging
