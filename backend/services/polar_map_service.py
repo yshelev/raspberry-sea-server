@@ -16,7 +16,7 @@ class PolarMapService:
         self.threshold = 5
         self.wind_bins_step = 5
         self.data_count = 0
-        self.data_threshold_for_diagram_create = 1000
+        self.data_threshold_for_diagram_create = 10
         
         self.SQLManager = SQLManager()
         self.graph_service = GraphService()        
