@@ -16,7 +16,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 png_websocket_service = PNGWebsocketService()
-data_websocket_service = PNGWebsocketService()
+data_websocket_service = DataWebsocketService()
 wind_service = WindProcessor()
 polar_map_service = PolarMapService()
 
@@ -69,6 +69,7 @@ async def redis_listener():
                 }
 
                 is_ok, err = await data_websocket_service.send_data(payload)
+                logger.info(str(is_ok) + f"{err} PAYLOAD SENDED" )
 
                 true_wind_data = wind_service.update_data(channel, data)
 
@@ -92,6 +93,7 @@ async def redis_listener():
                 }
 
                 is_ok, err = await data_websocket_service.send_data(payload)
+                logger.info(str(is_ok) + f"{err} PAYLOAD SENDED" )
                 
     except Exception as e:
         logger.error(f"Redis listener error: {e}")
