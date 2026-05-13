@@ -16,7 +16,9 @@ class PolarMapService:
         self.threshold = 5
         self.wind_bins_step = 5
         self.data_count = 0
-        self.data_threshold_for_diagram_create = 10
+        self.data_threshold_for_diagram_create = 5
+        self.diapason = 2
+        self.is_wind_valid = False
         
         self.SQLManager = SQLManager()
         self.graph_service = GraphService()        
@@ -27,9 +29,8 @@ class PolarMapService:
             self.initialized = True
 
     async def add_field(self):
-        if self.initialized and self.twa:
+        if self.initialized and self.is_wind_valid:
             self.data_count += 1
-            logger.info(f"DATACNT {self.data_count}")
             await self.SQLManager.add_data(
                 self.tws,
                 self.twa,
@@ -59,8 +60,16 @@ class PolarMapService:
         save_path = self.graph_service.create_graph(polar_points)
 
         return save_path
-        
+
     def set_module(self, module_name: str, value: float):
         if module_name == "tws":
-            value = round(value / self.wind_bins_step) * self.wind_bins_step
-        setattr(self, module_name, value)
+            closest_cluster = round(value / self.wind_bins_step) * self.wind_bins_step
+            if closest_cluster - self.diapason <= value <= closest_cluster + self.diapason:
+                self.is_wind_valid = True
+
+                setattr(self, module_name, closest_cluster)
+            else:
+                self.is_wind_valid = False
+
+        else:
+            setattr(self, module_name, value)

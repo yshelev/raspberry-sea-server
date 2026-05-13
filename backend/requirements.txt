@@ -4,3 +4,4 @@ redis
 websockets
 asyncpg
 matplotlib
+scipy
