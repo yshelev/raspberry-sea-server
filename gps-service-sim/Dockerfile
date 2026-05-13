@@ -6,4 +6,4 @@ COPY . .
 
 RUN pip install redis
 
-CMD ["python", "main.py"]
+CMD ["python", "vdk.py"]
