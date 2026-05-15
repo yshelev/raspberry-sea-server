@@ -92,7 +92,7 @@
       display: none;
     }
     .radar-canvas {
-      position: absolute;
+      position: relative;
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
@@ -101,8 +101,18 @@
       border-radius: 50%;
       border: 2px solid #333;
       background: #f5f5f5;
-      overflow: hidden;
+      overflow: visible;
       box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+    }
+    .radar-rotation-layer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      transform-origin: center center;
+      transition: transform 0.3s ease;
     }
     .radar-center {
       position: absolute;
@@ -124,19 +134,14 @@
     }
     .radar-point {
       position: absolute;
-      width: 10px;
-      height: 10px;
-      background: #ff4444;
+      width: 14px;
+      height: 14px;
+      background: #ffaa00;
       border-radius: 50%;
       transform: translate(-50%, -50%);
       transition: all 0.3s;
-      box-shadow: 0 0 4px rgba(0, 0, 0, 0.3);
-    }
-    .radar-point.active {
-      background: #ffaa00;
       box-shadow: 0 0 12px rgba(255, 170, 0, 0.8);
-      width: 14px;
-      height: 14px;
+      z-index: 20;
     }
     .radar-grid {
       position: absolute;
@@ -172,6 +177,32 @@
       background: #ccc;
       transform: translateY(-50%);
     }
+    .radar-direction {
+      position: absolute;
+      top: -20px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 0;
+      height: 0;
+      border-left: 8px solid transparent;
+      border-right: 8px solid transparent;
+      border-bottom: 15px solid #ff4444;
+      z-index: 20;
+    }
+    .next-point-info {
+      position: absolute;
+      bottom: 80px;
+      left: 20px;
+      z-index: 1000;
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(10px);
+      border-radius: 10px;
+      padding: 10px 15px;
+      color: white;
+      font-size: 12px;
+      font-family: monospace;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
   </style>
 </head>
 
@@ -180,9 +211,12 @@
   
   <div class="radar-container" id="radarContainer">
     <div class="radar-canvas" id="radarCanvas">
-      <div class="radar-grid" id="radarGrid"></div>
+      <div class="radar-rotation-layer" id="radarRotationLayer">
+        <div class="radar-grid" id="radarGrid"></div>
+        <div class="radar-points" id="radarPoints"></div>
+      </div>
       <div class="radar-center"></div>
-      <div class="radar-points" id="radarPoints"></div>
+      <div class="radar-direction"></div>
     </div>
   </div>
   
@@ -216,6 +250,10 @@
     Режим радара
   </div>
 
+  <div class="next-point-info" id="nextPointInfo">
+    Следующая точка: загрузка...
+  </div>
+
   <script>
     const VLADIDOSTOK = [131.91523178522812, 43.123237734648214];
     
@@ -230,13 +268,101 @@
     ];
     
     let lineFeature = null;
-    let points = [];
     let ws = null;
     let boatMarker = null;
     let radarMode = false;
     let currentBoatPosition = null;
     let currentBoatCourse = 0;
     let map = null;
+    let waypointsList = [...WAYPOINTS];
+    let currentTargetIndex = 0;
+    let currentTargetMarker = null;
+    let currentTargetCoordinates = null;
+    const ARRIVAL_THRESHOLD_KM = 0.1; // 100 метров
+
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+      const R = 6371;
+      const φ1 = lat1 * Math.PI / 180;
+      const φ2 = lat2 * Math.PI / 180;
+      const Δφ = (lat2 - lat1) * Math.PI / 180;
+      const Δλ = (lon2 - lon1) * Math.PI / 180;
+      
+      const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                Math.cos(φ1) * Math.cos(φ2) *
+                Math.sin(Δλ/2) * Math.sin(Δλ/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      
+      return R * c;
+    }
+
+    function calculateBearing(lat1, lon1, lat2, lon2) {
+      const φ1 = lat1 * Math.PI / 180;
+      const φ2 = lat2 * Math.PI / 180;
+      const Δλ = (lon2 - lon1) * Math.PI / 180;
+      
+      const y = Math.sin(Δλ) * Math.cos(φ2);
+      const x = Math.cos(φ1) * Math.sin(φ2) -
+                Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
+      
+      let θ = Math.atan2(y, x);
+      let bearing = (θ * 180 / Math.PI + 360) % 360;
+      
+      return bearing;
+    }
+
+    async function updateCurrentTarget() {
+      if (currentTargetMarker) {
+        map.removeChild(currentTargetMarker);
+      }
+      
+      if (currentTargetIndex < waypointsList.length) {
+        const target = waypointsList[currentTargetIndex];
+        currentTargetCoordinates = [target.lon, target.lat];
+        
+        const { YMapDefaultMarker } = await ymaps3.import('@yandex/ymaps3-default-ui-theme');
+        currentTargetMarker = new YMapDefaultMarker({
+          coordinates: currentTargetCoordinates,
+          color: 'orange',
+          size: 'micro',
+          draggable: false
+        });
+        map.addChild(currentTargetMarker);
+        
+        document.getElementById('nextPointInfo').innerHTML = 
+          `Следующая точка: ${currentTargetIndex + 1}/${waypointsList.length}<br>
+           Координаты: ${target.lat.toFixed(6)}°, ${target.lon.toFixed(6)}°`;
+        
+        if (radarMode) {
+          updateRadarPoints();
+        }
+      } else {
+        document.getElementById('nextPointInfo').innerHTML = 'Маршрут завершен!';
+        if (radarMode) {
+          const radarPointsDiv = document.getElementById('radarPoints');
+          radarPointsDiv.innerHTML = '';
+        }
+      }
+    }
+
+    function checkArrival() {
+      if (!currentBoatPosition || currentTargetIndex >= waypointsList.length) return;
+      
+      const target = waypointsList[currentTargetIndex];
+      const distance = calculateDistance(
+        currentBoatPosition.lat,
+        currentBoatPosition.lon,
+        target.lat,
+        target.lon
+      );
+      
+      console.log(`Distance to target: ${distance.toFixed(3)} km`);
+      
+      if (distance <= ARRIVAL_THRESHOLD_KM) {
+        console.log(`Arrived at point ${currentTargetIndex + 1}!`);
+        currentTargetIndex++;
+        updateCurrentTarget();
+      }
+    }
 
     function drawRadarGrid() {
       const radarGrid = document.getElementById('radarGrid');
@@ -261,84 +387,57 @@
       radarGrid.appendChild(lineH);
     }
 
-    function calculateBearing(lat1, lon1, lat2, lon2) {
-      const φ1 = lat1 * Math.PI / 180;
-      const φ2 = lat2 * Math.PI / 180;
-      const Δλ = (lon2 - lon1) * Math.PI / 180;
-      
-      const y = Math.sin(Δλ) * Math.cos(φ2);
-      const x = Math.cos(φ1) * Math.sin(φ2) -
-                Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
-      
-      let θ = Math.atan2(y, x);
-      let bearing = (θ * 180 / Math.PI + 360) % 360;
-      
-      return bearing;
-    }
-
-    function calculateDistance(lat1, lon1, lat2, lon2) {
-      const R = 6371;
-      const φ1 = lat1 * Math.PI / 180;
-      const φ2 = lat2 * Math.PI / 180;
-      const Δφ = (lat2 - lat1) * Math.PI / 180;
-      const Δλ = (lon2 - lon1) * Math.PI / 180;
-      
-      const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-                Math.cos(φ1) * Math.cos(φ2) *
-                Math.sin(Δλ/2) * Math.sin(Δλ/2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-      
-      return R * c;
-    }
-
     function updateRadarPoints() {
-      if (!currentBoatPosition || points.length === 0) return;
+      if (!currentBoatPosition || currentTargetIndex >= waypointsList.length) {
+        const radarPointsDiv = document.getElementById('radarPoints');
+        radarPointsDiv.innerHTML = '';
+        return;
+      }
       
       const radarPointsDiv = document.getElementById('radarPoints');
       radarPointsDiv.innerHTML = '';
       
-      points.forEach((point, index) => {
-        const pointCoord = point.coordinates || point.geometry?.coordinates;
-        if (!pointCoord) return;
-        
-        const bearing = calculateBearing(
-          currentBoatPosition.lat, 
-          currentBoatPosition.lon,
-          pointCoord[1], 
-          pointCoord[0]
-        );
-        
-        const relativeAngle = (bearing - currentBoatCourse + 360) % 360;
-        
-        const distance = calculateDistance(
-          currentBoatPosition.lat, 
-          currentBoatPosition.lon,
-          pointCoord[1], 
-          pointCoord[0]
-        );
-        
-        const maxRadarRange = 10;
-        const radarRadius = 40;
-        let radarDistance = (distance / maxRadarRange) * radarRadius;
-        radarDistance = Math.min(radarDistance, radarRadius);
-        
-        const angleRad = relativeAngle * Math.PI / 180;
-        const x = 50 + Math.sin(angleRad) * radarDistance;
-        const y = 50 - Math.cos(angleRad) * radarDistance;
-        
-        const pointDiv = document.createElement('div');
-        pointDiv.className = 'radar-point';
-        if (index === 0) {
-          pointDiv.classList.add('active');
-        }
-        
-        pointDiv.style.left = `${x}%`;
-        pointDiv.style.top = `${y}%`;
-        
-        pointDiv.title = `Точка ${index + 1}\nАзимут: ${bearing.toFixed(1)}°\nОтн. угол: ${relativeAngle.toFixed(1)}°\nРасстояние: ${distance.toFixed(2)} км`;
-        
-        radarPointsDiv.appendChild(pointDiv);
-      });
+      const rotationAngle = -currentBoatCourse;
+      const rotationLayer = document.getElementById('radarRotationLayer');
+      rotationLayer.style.transform = `rotate(${rotationAngle}deg)`;
+      
+      const target = waypointsList[currentTargetIndex];
+      
+      const bearing = calculateBearing(
+        currentBoatPosition.lat,
+        currentBoatPosition.lon,
+        target.lat,
+        target.lon
+      );
+      
+      const distance = calculateDistance(
+        currentBoatPosition.lat,
+        currentBoatPosition.lon,
+        target.lat,
+        target.lon
+      );
+      
+      const maxRadarRange = 10;
+      const radarRadius = 40;
+      let radarDistance = (distance / maxRadarRange) * radarRadius;
+      radarDistance = Math.min(radarDistance, radarRadius);
+      
+      const angleRad = bearing * Math.PI / 180;
+      const x = 50 + Math.sin(angleRad) * radarDistance;
+      const y = 50 - Math.cos(angleRad) * radarDistance;
+      
+      const pointDiv = document.createElement('div');
+      pointDiv.className = 'radar-point';
+      pointDiv.style.left = `${x}%`;
+      pointDiv.style.top = `${y}%`;
+      pointDiv.title = `Цель ${currentTargetIndex + 1}\nАзимут: ${bearing.toFixed(1)}°\nРасстояние: ${distance.toFixed(2)} км`;
+      
+      radarPointsDiv.appendChild(pointDiv);
+      
+      document.getElementById('nextPointInfo').innerHTML = 
+        `Цель ${currentTargetIndex + 1}/${waypointsList.length}<br>
+         Дистанция: ${distance.toFixed(2)} км<br>
+         Азимут: ${bearing.toFixed(0)}°`;
     }
 
     function toggleRadarMode() {
@@ -362,7 +461,10 @@
     }
 
     function connectWebSocket() {
-        const wsUrl = `ws://localhost:8000/ws`;
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const host = window.location.host;
+        const wsUrl = `${protocol}//${host}/ws`;
+        
         ws = new WebSocket(wsUrl);
         
         ws.onopen = () => {
@@ -383,6 +485,7 @@
                     if (gps.lon && gps.lat) {
                         currentBoatPosition = { lat: gps.lat, lon: gps.lon };
                         updateBoatMarker([gps.lon, gps.lat]);
+                        checkArrival();
                         if (radarMode) {
                           updateRadarPoints();
                         }
@@ -403,7 +506,7 @@
                     const lag = data.data;
                     document.getElementById('lagData').innerHTML = 
                         `${lag.speed_knots || 0} узлов`;
-                    if (lag.course) {
+                    if (lag.course !== undefined && lag.course !== null) {
                       currentBoatCourse = lag.course;
                       if (radarMode) {
                         updateRadarPoints();
@@ -447,55 +550,16 @@
         map.addChild(boatMarker);
     }
 
-    function updateLine() {
-        if (lineFeature) {
-            map.removeChild(lineFeature);
-        }
-        
-        if (points.length >= 2) {
-            const coordinates = points.map(p => p.coordinates);
-            lineFeature = new ymaps3.YMapFeature({
-                id: 'line',
-                geometry: {
-                    type: 'LineString',
-                    coordinates: coordinates
-                },
-                style: {
-                    stroke: [{width: 3, color: '#74ACFC', opacity: 0.7}]
-                }
-            });
-            map.addChild(lineFeature);
-        }
-    }
-
-    async function addInitialPoints() {
-        const { YMapDefaultMarker } = await ymaps3.import('@yandex/ymaps3-default-ui-theme');
-        
-        for (const wp of WAYPOINTS) {
-            const marker = new YMapDefaultMarker({
-                coordinates: [wp.lon, wp.lat],
-                color: 'white',
-                size: 'micro',
-                draggable: true
-            });
-            
-            points.push(marker);
-            map.addChild(marker);
-        }
-        
-        updateLine();
-    }
-
     async function main() {
         await ymaps3.ready;
 
         const {
             YMap, 
-            YMapListener, 
             YMapDefaultSchemeLayer, 
             YMapDefaultFeaturesLayer, 
             YMapControls, 
             YMapControlButton,
+            YMapListener,
             YMapFeature
         } = ymaps3;
 
@@ -517,42 +581,7 @@
 
         map.addChild(new YMapDefaultSchemeLayer());
         map.addChild(new YMapDefaultFeaturesLayer());
-
-        function addPoint(coordinates) {
-            const { YMapDefaultMarker } = ymaps3.import('@yandex/ymaps3-default-ui-theme');
-            YMapDefaultMarker.then(({YMapDefaultMarker: Marker}) => {
-                const marker = new Marker({
-                    coordinates: coordinates,
-                    color: 'white',
-                    size: 'micro',
-                    draggable: true
-                });
-                
-                points.push(marker);
-                map.addChild(marker);
-                updateLine();
-                
-                if (radarMode) {
-                    updateRadarPoints();
-                }
-            });
-        }
-
-        const clickHandler = async (object, data) => {
-            if (points.length == 0 || points[points.length - 1].coordinates != object?.entity?.coordinates) {
-                addPoint(data.coordinates);
-            }
-        };
-
-        const dragHandler = (object, data) => {
-            if (object?.type == 'marker') {
-                updateLine();
-                if (radarMode) {
-                    updateRadarPoints();
-                }
-            }
-        };
-
+        
         const controls = new YMapControls({position: 'top right'});
         
         const center_button = new YMapControlButton({
@@ -565,19 +594,12 @@
             }
         });
         
-        const clear_button = new YMapControlButton({
-            text: 'Очистить',
+        const reset_button = new YMapControlButton({
+            text: 'Сброс маршрута',
             onClick: () => {
-                points.forEach(p => {
-                    map.removeChild(p);
-                });
-                points = [];
-
-                if (lineFeature) {
-                    map.removeChild(lineFeature);
-                    lineFeature = null;
-                }
-                
+                waypointsList = [...WAYPOINTS];
+                currentTargetIndex = 0;
+                updateCurrentTarget();
                 if (radarMode) {
                     updateRadarPoints();
                 }
@@ -585,17 +607,10 @@
         });
         
         controls.addChild(center_button);
-        controls.addChild(clear_button);
-        
-        map.addChild(new YMapListener({
-            layer: 'any',
-            onClick: clickHandler,
-            onPointerMove: dragHandler
-        }));
-
+        controls.addChild(reset_button);
         map.addChild(controls);
         
-        await addInitialPoints();
+        await updateCurrentTarget();
         
         document.getElementById('radarToggle').addEventListener('click', toggleRadarMode);
         
