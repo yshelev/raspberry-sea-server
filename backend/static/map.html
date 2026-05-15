@@ -226,7 +226,7 @@
     <div id="status" class="status disconnected">Disconnected</div>
     
     <div class="radar-toggle" id="radarToggle">
-      🔘 Режим радара
+      Режим радара
     </div>
 
     <script>
@@ -497,6 +497,8 @@
                   size: 'micro',
                   draggable: true
               });
+
+              console.log(coordinates);
               
               points.push(marker);
               map.addChild(marker);
