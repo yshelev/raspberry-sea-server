@@ -15,18 +15,19 @@ class WindEmulator:
     def __init__(self):
         self.aws = 10.0  # apparent wind speed
         self.awa = 90  # apparent wind angle
+        self.target_awa = 90
 
     def update(self):
-        # турбулентность ветра
         wind_gust = random.uniform(-1.2, 1.2)
-
         self.aws += wind_gust
         self.aws = max(0, self.aws)
 
-        # флюгер гуляет
-        self.awa += random.uniform(-6, 6)
+        if random.random() < 0.03:
+            self.target_awa = random.uniform(30, 170)
 
-        self.awa = (self.awa + 360) % 360
+        self.awa += (self.target_awa - self.awa) * 0.1
+        self.awa += random.uniform(-3, 3)
+        self.awa = max(0, min(180, self.awa))
 
     def read(self):
         self.update()
