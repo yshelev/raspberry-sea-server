@@ -208,7 +208,7 @@
 
 <body>
   <div id="map" style="width: 100%; height: 100vh;"></div>
-  
+
   <div class="radar-container" id="radarContainer">
     <div class="radar-canvas" id="radarCanvas">
       <div class="radar-rotation-layer" id="radarRotationLayer">
@@ -219,7 +219,7 @@
       <div class="radar-direction"></div>
     </div>
   </div>
-  
+
   <div class="data-panel">
     <h3>Sailing Data</h3>
     <div class="data-row">
@@ -243,9 +243,9 @@
       <span class="value" id="lagData">Waiting...</span>
     </div>
   </div>
-  
+
   <div id="status" class="status disconnected">Disconnected</div>
-  
+
   <div class="radar-toggle" id="radarToggle">
     Режим радара
   </div>
@@ -256,7 +256,7 @@
 
   <script>
     const VLADIDOSTOK = [131.91523178522812, 43.123237734648214];
-    
+
     const WAYPOINTS = [
       {"lat": 43.15893822833752, "lon": 131.87746628229846},
       {"lat": 43.13229055069301, "lon": 131.84931381647814},
@@ -266,8 +266,14 @@
       {"lat": 43.11053637145254, "lon": 131.87603576383884},
       {"lat": 43.15893822833752, "lon": 131.87746628229846},
     ];
-    
-    let lineFeature = null;
+
+    const WIND_BBOX = {
+      minLat: 42.75, maxLat: 43.5,
+      minLon: 131.5, maxLon: 133.0
+    };
+    const GRID_STEP_DEG = 0.1; // ~10 морских миль
+
+    let linexFeature = null;
     let ws = null;
     let boatMarker = null;
     let radarMode = false;
@@ -278,7 +284,7 @@
     let currentTargetIndex = 0;
     let currentTargetMarker = null;
     let currentTargetCoordinates = null;
-    const ARRIVAL_THRESHOLD_KM = 0.1; // 100 метров
+    const ARRIVAL_THRESHOLD_KM = 0.1;
 
     function calculateDistance(lat1, lon1, lat2, lon2) {
       const R = 6371;
@@ -286,12 +292,10 @@
       const φ2 = lat2 * Math.PI / 180;
       const Δφ = (lat2 - lat1) * Math.PI / 180;
       const Δλ = (lon2 - lon1) * Math.PI / 180;
-      
       const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
                 Math.cos(φ1) * Math.cos(φ2) *
                 Math.sin(Δλ/2) * Math.sin(Δλ/2);
       const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-      
       return R * c;
     }
 
@@ -299,26 +303,88 @@
       const φ1 = lat1 * Math.PI / 180;
       const φ2 = lat2 * Math.PI / 180;
       const Δλ = (lon2 - lon1) * Math.PI / 180;
-      
       const y = Math.sin(Δλ) * Math.cos(φ2);
       const x = Math.cos(φ1) * Math.sin(φ2) -
                 Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
-      
-      let θ = Math.atan2(y, x);
-      let bearing = (θ * 180 / Math.PI + 360) % 360;
-      
-      return bearing;
+      return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
     }
 
+    function windColor(spd) {
+      if (spd < 3)  return '#adb5bd';
+      if (spd < 7)  return '#4dabf7';
+      if (spd < 12) return '#69db7c';
+      if (spd < 18) return '#ffd43b';
+      if (spd < 25) return '#ff922b';
+      return '#f03e3e';
+    }
+
+    async function fetchWindAtPoint(lat, lon) {
+      const resp = await fetch(`/api/wind?lat=${lat}&lon=${lon}`);
+      if (!resp.ok) throw new Error(`Wind fetch failed: ${resp.status}`);
+      return await resp.json();
+    }
+
+    async function buildWindGrid() {
+      const points = [];
+      for (let lat = WIND_BBOX.minLat; lat <= WIND_BBOX.maxLat; lat += GRID_STEP_DEG)
+        for (let lon = WIND_BBOX.minLon; lon <= WIND_BBOX.maxLon; lon += GRID_STEP_DEG)
+          points.push({ lat, lon });
+
+      const results = [];
+      for (let i = 0; i < points.length; i += 10) {
+        const batch = points.slice(i, i + 10);
+        const fetched = await Promise.all(batch.map(p => fetchWindAtPoint(p.lat, p.lon)));
+        results.push(...fetched);
+        await new Promise(r => setTimeout(r, 1000));
+      }
+      return results;
+    }
+
+    function drawWindLayer(windData) {
+      windData.forEach(({ lat, lon, speed, dir }) => {
+        const stroke = windColor(speed);
+        const len = 8 + speed * 2.5;
+        const lw = 1 + speed * 0.1;
+
+        const svg = `
+          <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="-32 -32 64 64">
+            <line
+              x1="0" y1="${len * 0.3}"
+              x2="0" y2="-${len * 0.7}"
+              stroke="${stroke}"
+              stroke-width="${lw}"
+              stroke-linecap="round"
+              transform="rotate(${dir + 180})"
+            />
+            <polygon
+              points="0,-${len * 0.7} -3,-${len * 0.7 - 6} 3,-${len * 0.7 - 6}"
+              fill="${stroke}"
+              transform="rotate(${dir + 180})"
+            />
+          </svg>`;
+
+        const el = document.createElement('div');
+        el.innerHTML = svg;
+        el.style.pointerEvents = 'none';
+
+        const marker = new ymaps3.YMapMarker(
+          { coordinates: [lon, lat] },
+          el
+        );
+        map.addChild(marker);
+      });
+    }
+
+    // ── Waypoint / radar logic ────────────────────────────────────────────────
     async function updateCurrentTarget() {
       if (currentTargetMarker) {
         map.removeChild(currentTargetMarker);
       }
-      
+
       if (currentTargetIndex < waypointsList.length) {
         const target = waypointsList[currentTargetIndex];
         currentTargetCoordinates = [target.lon, target.lat];
-        
+
         const { YMapDefaultMarker } = await ymaps3.import('@yandex/ymaps3-default-ui-theme');
         currentTargetMarker = new YMapDefaultMarker({
           coordinates: currentTargetCoordinates,
@@ -327,36 +393,26 @@
           draggable: false
         });
         map.addChild(currentTargetMarker);
-        
-        document.getElementById('nextPointInfo').innerHTML = 
+
+        document.getElementById('nextPointInfo').innerHTML =
           `Следующая точка: ${currentTargetIndex + 1}/${waypointsList.length}<br>
            Координаты: ${target.lat.toFixed(6)}°, ${target.lon.toFixed(6)}°`;
-        
-        if (radarMode) {
-          updateRadarPoints();
-        }
+
+        if (radarMode) updateRadarPoints();
       } else {
         document.getElementById('nextPointInfo').innerHTML = 'Маршрут завершен!';
-        if (radarMode) {
-          const radarPointsDiv = document.getElementById('radarPoints');
-          radarPointsDiv.innerHTML = '';
-        }
+        if (radarMode) document.getElementById('radarPoints').innerHTML = '';
       }
     }
 
     function checkArrival() {
       if (!currentBoatPosition || currentTargetIndex >= waypointsList.length) return;
-      
       const target = waypointsList[currentTargetIndex];
       const distance = calculateDistance(
-        currentBoatPosition.lat,
-        currentBoatPosition.lon,
-        target.lat,
-        target.lon
+        currentBoatPosition.lat, currentBoatPosition.lon,
+        target.lat, target.lon
       );
-      
       console.log(`Distance to target: ${distance.toFixed(3)} km`);
-      
       if (distance <= ARRIVAL_THRESHOLD_KM) {
         console.log(`Arrived at point ${currentTargetIndex + 1}!`);
         currentTargetIndex++;
@@ -367,9 +423,7 @@
     function drawRadarGrid() {
       const radarGrid = document.getElementById('radarGrid');
       radarGrid.innerHTML = '';
-      
-      const radii = [25, 50, 75];
-      radii.forEach(radius => {
+      [25, 50, 75].forEach(radius => {
         const circle = document.createElement('div');
         circle.className = 'radar-grid-circle';
         circle.style.width = `${radius * 2}%`;
@@ -377,11 +431,9 @@
         circle.style.border = '1px solid #ddd';
         radarGrid.appendChild(circle);
       });
-      
       const lineV = document.createElement('div');
       lineV.className = 'radar-grid-line';
       radarGrid.appendChild(lineV);
-      
       const lineH = document.createElement('div');
       lineH.className = 'radar-grid-line-horizontal';
       radarGrid.appendChild(lineH);
@@ -389,52 +441,40 @@
 
     function updateRadarPoints() {
       if (!currentBoatPosition || currentTargetIndex >= waypointsList.length) {
-        const radarPointsDiv = document.getElementById('radarPoints');
-        radarPointsDiv.innerHTML = '';
+        document.getElementById('radarPoints').innerHTML = '';
         return;
       }
-      
+
       const radarPointsDiv = document.getElementById('radarPoints');
       radarPointsDiv.innerHTML = '';
-      
-      const rotationAngle = -currentBoatCourse;
-      const rotationLayer = document.getElementById('radarRotationLayer');
-      rotationLayer.style.transform = `rotate(${rotationAngle}deg)`;
-      
+
+      document.getElementById('radarRotationLayer').style.transform =
+        `rotate(${-currentBoatCourse}deg)`;
+
       const target = waypointsList[currentTargetIndex];
-      
       const bearing = calculateBearing(
-        currentBoatPosition.lat,
-        currentBoatPosition.lon,
-        target.lat,
-        target.lon
+        currentBoatPosition.lat, currentBoatPosition.lon,
+        target.lat, target.lon
       );
-      
       const distance = calculateDistance(
-        currentBoatPosition.lat,
-        currentBoatPosition.lon,
-        target.lat,
-        target.lon
+        currentBoatPosition.lat, currentBoatPosition.lon,
+        target.lat, target.lon
       );
-      
-      const maxRadarRange = 10;
-      const radarRadius = 40;
-      let radarDistance = (distance / maxRadarRange) * radarRadius;
-      radarDistance = Math.min(radarDistance, radarRadius);
-      
+
+      const maxRadarRange = 10, radarRadius = 40;
+      const radarDistance = Math.min((distance / maxRadarRange) * radarRadius, radarRadius);
       const angleRad = bearing * Math.PI / 180;
       const x = 50 + Math.sin(angleRad) * radarDistance;
       const y = 50 - Math.cos(angleRad) * radarDistance;
-      
+
       const pointDiv = document.createElement('div');
       pointDiv.className = 'radar-point';
       pointDiv.style.left = `${x}%`;
       pointDiv.style.top = `${y}%`;
       pointDiv.title = `Цель ${currentTargetIndex + 1}\nАзимут: ${bearing.toFixed(1)}°\nРасстояние: ${distance.toFixed(2)} км`;
-      
       radarPointsDiv.appendChild(pointDiv);
-      
-      document.getElementById('nextPointInfo').innerHTML = 
+
+      document.getElementById('nextPointInfo').innerHTML =
         `Цель ${currentTargetIndex + 1}/${waypointsList.length}<br>
          Дистанция: ${distance.toFixed(2)} км<br>
          Азимут: ${bearing.toFixed(0)}°`;
@@ -444,9 +484,7 @@
       const mapDiv = document.getElementById('map');
       const radarContainer = document.getElementById('radarContainer');
       const toggleBtn = document.getElementById('radarToggle');
-      
       radarMode = !radarMode;
-      
       if (radarMode) {
         mapDiv.style.display = 'none';
         radarContainer.style.display = 'block';
@@ -460,161 +498,130 @@
       }
     }
 
+    // ── WebSocket ─────────────────────────────────────────────────────────────
     function connectWebSocket() {
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const host = window.location.host;
-        const wsUrl = `${protocol}//${host}/ws`;
-        
-        ws = new WebSocket(wsUrl);
-        
-        ws.onopen = () => {
-            console.log('Connected');
-            document.getElementById('status').className = 'status connected';
-            document.getElementById('status').textContent = 'Connected ✓';
-        };
-        
-        ws.onmessage = (event) => {
-            try {
-                const data = JSON.parse(event.data);
-              
-                if (data.type === 'gps') {
-                    const gps = data.data;
-                    document.getElementById('gpsData').innerHTML = 
-                        `${gps.lat?.toFixed(6) || '?'}°, ${gps.lon?.toFixed(6) || '?'}°`;
-                    
-                    if (gps.lon && gps.lat) {
-                        currentBoatPosition = { lat: gps.lat, lon: gps.lon };
-                        updateBoatMarker([gps.lon, gps.lat]);
-                        checkArrival();
-                        if (radarMode) {
-                          updateRadarPoints();
-                        }
-                    }
-                } else if (data.type === 'wind') {
-                    const wind = data.data;
-                    document.getElementById('windData').innerHTML = 
-                        `${wind.aws || 0} м/с, ${wind.direction || 0}°`;
-                } else if (data.type === 'true_wind') {
-                    const trueWind = data.data;
-                    document.getElementById('trueWindData').innerHTML = 
-                        `${trueWind.tws?.toFixed(1) || 0} м/с, ${trueWind.twd?.toFixed(0) || 0}°`;
-                } else if (data.type === 'depth') {
-                    const depth = data.data;
-                    document.getElementById('depthData').innerHTML = 
-                        `${depth.depth_m || 0} м`;
-                } else if (data.type === 'lag') {
-                    const lag = data.data;
-                    document.getElementById('lagData').innerHTML = 
-                        `${lag.speed_knots || 0} узлов`;
-                    if (lag.course !== undefined && lag.course !== null) {
-                      currentBoatCourse = lag.course;
-                      if (radarMode) {
-                        updateRadarPoints();
-                      }
-                    }
-                }
-            } catch (error) {
-                console.error('Error parsing message:', error);
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${protocol}//${window.location.host}/ws`;
+      ws = new WebSocket(wsUrl);
+
+      ws.onopen = () => {
+        document.getElementById('status').className = 'status connected';
+        document.getElementById('status').textContent = 'Connected ✓';
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'gps') {
+            const gps = data.data;
+            document.getElementById('gpsData').innerHTML =
+              `${gps.lat?.toFixed(6) || '?'}°, ${gps.lon?.toFixed(6) || '?'}°`;
+            if (gps.lon && gps.lat) {
+              currentBoatPosition = { lat: gps.lat, lon: gps.lon };
+              updateBoatMarker([gps.lon, gps.lat]);
+              checkArrival();
+              if (radarMode) updateRadarPoints();
             }
-        };
-        
-        ws.onerror = (error) => {
-            console.error('WebSocket error:', error);
-            document.getElementById('status').className = 'status disconnected';
-            document.getElementById('status').textContent = 'Error ✗';
-        };
-        
-        ws.onclose = () => {
-            console.log('Disconnected');
-            document.getElementById('status').className = 'status disconnected';
-            document.getElementById('status').textContent = 'Disconnected ✗';
-            ws = null;
-            
-            setTimeout(connectWebSocket, 3000);
-        };
+          } else if (data.type === 'wind') {
+            const wind = data.data;
+            document.getElementById('windData').innerHTML =
+              `${wind.aws || 0} м/с, ${wind.direction || 0}°`;
+          } else if (data.type === 'true_wind') {
+            const trueWind = data.data;
+            document.getElementById('trueWindData').innerHTML =
+              `${trueWind.tws?.toFixed(1) || 0} м/с, ${trueWind.twd?.toFixed(0) || 0}°`;
+          } else if (data.type === 'depth') {
+            document.getElementById('depthData').innerHTML =
+              `${data.data.depth_m || 0} м`;
+          } else if (data.type === 'lag') {
+            const lag = data.data;
+            document.getElementById('lagData').innerHTML =
+              `${lag.speed_knots || 0} узлов`;
+            if (lag.course !== undefined && lag.course !== null) {
+              currentBoatCourse = lag.course;
+              if (radarMode) updateRadarPoints();
+            }
+          }
+        } catch (error) {
+          console.error('Error parsing message:', error);
+        }
+      };
+
+      ws.onerror = () => {
+        document.getElementById('status').className = 'status disconnected';
+        document.getElementById('status').textContent = 'Error ✗';
+      };
+
+      ws.onclose = () => {
+        document.getElementById('status').className = 'status disconnected';
+        document.getElementById('status').textContent = 'Disconnected ✗';
+        ws = null;
+        setTimeout(connectWebSocket, 3000);
+      };
     }
 
     async function updateBoatMarker(coordinates) {
-        await ymaps3.ready;
-        const { YMapDefaultMarker } = await ymaps3.import('@yandex/ymaps3-default-ui-theme');
-        
-        if (boatMarker) {
-            map.removeChild(boatMarker);
-        }
-        
-        boatMarker = new YMapDefaultMarker({
-            coordinates: coordinates,
-            color: 'red',
-            size: 'micro'
-        });
-        map.addChild(boatMarker);
+      await ymaps3.ready;
+      const { YMapDefaultMarker } = await ymaps3.import('@yandex/ymaps3-default-ui-theme');
+      if (boatMarker) map.removeChild(boatMarker);
+      boatMarker = new YMapDefaultMarker({
+        coordinates,
+        color: 'red',
+        size: 'micro'
+      });
+      map.addChild(boatMarker);
     }
 
+    // ── Entry point ───────────────────────────────────────────────────────────
     async function main() {
-        await ymaps3.ready;
+      await ymaps3.ready;
 
-        const {
-            YMap, 
-            YMapDefaultSchemeLayer, 
-            YMapDefaultFeaturesLayer, 
-            YMapControls, 
-            YMapControlButton,
-            YMapListener,
-            YMapFeature
-        } = ymaps3;
+      const {
+        YMap,
+        YMapDefaultSchemeLayer,
+        YMapDefaultFeaturesLayer,
+        YMapControls,
+        YMapControlButton,
+      } = ymaps3;
 
-        ymaps3.import.registerCdn('https://cdn.jsdelivr.net/npm/{package}', [
-            '@yandex/ymaps3-default-ui-theme@latest',
-            '@yandex/ymaps3-hint@latest'
-        ]);
+      ymaps3.import.registerCdn('https://cdn.jsdelivr.net/npm/{package}', [
+        '@yandex/ymaps3-default-ui-theme@latest',
+        '@yandex/ymaps3-hint@latest'
+      ]);
 
-        window.map = new YMap(
-            document.getElementById('map'),
-            {
-                location: {
-                    center: [131.87746628229846, 43.116],
-                    zoom: 11
-                }
-            }
-        );
-        map = window.map;
+      window.map = new YMap(
+        document.getElementById('map'),
+        { location: { center: [131.87746628229846, 43.116], zoom: 11 } }
+      );
+      map = window.map;
 
-        map.addChild(new YMapDefaultSchemeLayer());
-        map.addChild(new YMapDefaultFeaturesLayer());
-        
-        const controls = new YMapControls({position: 'top right'});
-        
-        const center_button = new YMapControlButton({
-            text: 'Владивосток',
-            onClick: () => {
-                map.setLocation({
-                    center: VLADIDOSTOK,
-                    zoom: 10
-                });
-            }
-        });
-        
-        const reset_button = new YMapControlButton({
-            text: 'Сброс маршрута',
-            onClick: () => {
-                waypointsList = [...WAYPOINTS];
-                currentTargetIndex = 0;
-                updateCurrentTarget();
-                if (radarMode) {
-                    updateRadarPoints();
-                }
-            }
-        });
-        
-        controls.addChild(center_button);
-        controls.addChild(reset_button);
-        map.addChild(controls);
-        
-        await updateCurrentTarget();
-        
-        document.getElementById('radarToggle').addEventListener('click', toggleRadarMode);
-        
-        connectWebSocket();
+      map.addChild(new YMapDefaultSchemeLayer());
+      map.addChild(new YMapDefaultFeaturesLayer());
+
+      const controls = new YMapControls({ position: 'top right' });
+      controls.addChild(new YMapControlButton({
+        text: 'Владивосток',
+        onClick: () => map.setLocation({ center: VLADIDOSTOK, zoom: 10 })
+      }));
+      controls.addChild(new YMapControlButton({
+        text: 'Сброс маршрута',
+        onClick: () => {
+          waypointsList = [...WAYPOINTS];
+          currentTargetIndex = 0;
+          updateCurrentTarget();
+          if (radarMode) updateRadarPoints();
+        }
+      }));
+      map.addChild(controls);
+
+      await updateCurrentTarget();
+      document.getElementById('radarToggle').addEventListener('click', toggleRadarMode);
+      connectWebSocket();
+
+      // Загружаем ветер после инициализации карты
+      buildWindGrid().then(drawWindLayer).catch(err => {
+        console.error('Wind grid error:', err);
+      });
     }
 
     main();

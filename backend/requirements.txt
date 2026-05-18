@@ -5,3 +5,4 @@ websockets
 asyncpg
 matplotlib
 scipy
+httpx
