@@ -1,0 +1,226 @@
+/* === CSS Variables for theming === */
+:root {
+    --bg: #0a0a0f;
+    --fg: #c0c0c8;
+    --app-bg: #0a0a0f;
+    --panel-bg: #111118;
+    --panel-border: #1e1e2e;
+    --label: #6b7280;
+    --value: #a5b4fc;
+    --value-boat: #9ca3af;
+    --unit: #4b5563;
+    --status: #555;
+    --btn-bg: #1e293b;
+    --btn-fg: #94a3b8;
+    --btn-border: #334155;
+    --btn-hover-bg: #334155;
+    --btn-hover-fg: #cbd5e1;
+    --compass-bg: #0f1117;
+    --compass-border: #1e293b;
+    --compass-grid: #1e293b;
+    --compass-tick: #475569;
+    --compass-tick-major: #94a3b8;
+    --compass-text: #475569;
+    --compass-text-major: #94a3b8;
+    --center-dot: #64748b;
+    --theme-btn-bg: #1e293b;
+    --theme-btn-fg: #fbbf24;
+}
+
+/* === Light theme === */
+body.light {
+    --bg: #f5f5f7;
+    --fg: #374151;
+    --app-bg: #f5f5f7;
+    --panel-bg: #ffffff;
+    --panel-border: #e5e7eb;
+    --label: #9ca3af;
+    --value: #4f46e5;
+    --value-boat: #6b7280;
+    --unit: #9ca3af;
+    --status: #9ca3af;
+    --btn-bg: #e5e7eb;
+    --btn-fg: #374151;
+    --btn-border: #d1d5db;
+    --btn-hover-bg: #d1d5db;
+    --btn-hover-fg: #111827;
+    --compass-bg: #ffffff;
+    --compass-border: #e5e7eb;
+    --compass-grid: #f3f4f6;
+    --compass-tick: #d1d5db;
+    --compass-tick-major: #9ca3af;
+    --compass-text: #d1d5db;
+    --compass-text-major: #6b7280;
+    --center-dot: #d1d5db;
+    --theme-btn-bg: #e5e7eb;
+    --theme-btn-fg: #f59e0b;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding-top: 20px;
+    transition: background 0.3s, color 0.3s;
+}
+
+.app {
+    width: 100%;
+    max-width: 380px;
+    padding: 15px;
+}
+
+/* === Theme Toggle === */
+.theme-toggle {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 10px;
+}
+
+.theme-btn {
+    background: var(--theme-btn-bg);
+    color: var(--theme-btn-fg);
+    border: 1px solid var(--btn-border);
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    font-size: 18px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.theme-btn:hover {
+    transform: scale(1.1);
+}
+
+/* === Compass === */
+.compass-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 10px 0 20px;
+}
+
+#windCompass {
+    max-width: 100%;
+    height: auto;
+    filter: drop-shadow(0 4px 12px rgba(0,0,0,0.15));
+}
+
+.compass-label {
+    font-size: 11px;
+    color: var(--status);
+    margin-top: 8px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+/* === Wind Panel === */
+.wind-panel {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    margin: 15px 0;
+    padding: 12px;
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    transition: background 0.3s, border-color 0.3s;
+}
+
+.wind-item {
+    text-align: center;
+}
+
+.wind-label {
+    font-size: 10px;
+    color: var(--label);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+}
+
+.wind-value {
+    font-size: 26px;
+    font-weight: 600;
+    color: var(--value);
+    line-height: 1;
+    transition: color 0.3s;
+}
+
+.wind-unit {
+    font-size: 9px;
+    color: var(--unit);
+    margin-top: 4px;
+}
+
+/* === Status Bar === */
+.status-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px;
+    font-size: 11px;
+    color: var(--status);
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #ef4444;
+    transition: background 0.3s;
+}
+
+.status-dot.connected {
+    background: #22c55e;
+}
+
+/* === Buttons === */
+.buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
+    gap: 6px;
+    margin-top: 15px;
+}
+
+.btn {
+    background: var(--btn-bg);
+    color: var(--btn-fg);
+    border: 1px solid var(--btn-border);
+    border-radius: 6px;
+    padding: 12px 8px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    text-decoration: none;
+    text-align: center;
+    display: inline-block;
+    transition: all 0.2s;
+}
+
+.icon-btn {
+    padding: 12px;
+    font-size: 16px;
+}
+
+.btn:hover {
+    background: var(--btn-hover-bg);
+    color: var(--btn-hover-fg);
+}

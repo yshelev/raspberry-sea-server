@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wind Dashboard</title>
+    <link rel="stylesheet" href="static/wind.css">
+<base target="_blank">
+</head>
+<body>
+    <div class="app">
+        <!-- Theme Toggle -->
+        <div class="theme-toggle">
+            <button class="theme-btn" id="themeBtn" onclick="toggleTheme()">🌙</button>
+        </div>
+
+        <!-- Wind Compass -->
+        <div class="compass-container">
+            <canvas id="windCompass" width="300" height="300"></canvas>
+            <div class="compass-label">Boat heading up</div>
+        </div>
+
+        <!-- Wind Data Panel -->
+        <div class="wind-panel">
+            <div class="wind-item">
+                <div class="wind-label">TWS</div>
+                <div class="wind-value" id="tws">—</div>
+                <div class="wind-unit">kts</div>
+            </div>
+            <div class="wind-item">
+                <div class="wind-label">TWA</div>
+                <div class="wind-value" id="twa">—°</div>
+            </div>
+            <div class="wind-item">
+                <div class="wind-label">TWD</div>
+                <div class="wind-value" id="twd">—°</div>
+            </div>
+        </div>
+
+        <!-- Connection Status -->
+        <div class="status-bar">
+            <div class="status-dot" id="status-dot"></div>
+            <span id="status-text">Connecting...</span>
+        </div>
+
+        <!-- Buttons -->
+        <div class="buttons">
+            <button class="btn" onclick="location.href='/'">WAYPOINTS</button>
+            <button class="btn" onclick="location.href='/map'">MAP</button>
+            <button class="btn icon-btn" onclick="location.href='/polar-view'">📊</button>
+        </div>
+    </div>
+
+    <script src="static/wind.js"></script>
+</body>
+</html>

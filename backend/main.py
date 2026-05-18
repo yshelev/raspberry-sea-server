@@ -159,3 +159,9 @@ async def serve_map():
 async def serve_polar_viewer():
     with open("static/polar.html", "r", encoding="utf-8") as f:
         return f.read()
+    
+
+@app.get("/wind", response_class=HTMLResponse)
+async def serve_wind():
+    with open("static/wind.html", "r", encoding="utf-8") as f:
+        return f.read()
