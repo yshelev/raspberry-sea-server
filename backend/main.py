@@ -7,8 +7,6 @@ import asyncio
 import os
 import json
 import logging
-
-from services.weather_service import fetch_wind_at_point
 from services.wind_service import WindProcessor
 from services.polar_map_service import PolarMapService
 from services.png_websocket_service import PNGWebsocketService
@@ -161,6 +159,9 @@ async def serve_map():
 async def serve_polar_viewer():
     with open("static/polar.html", "r", encoding="utf-8") as f:
         return f.read()
-@app.get("/api/wind")
-async def get_wind(lat: float, lon: float):
-    return await fetch_wind_at_point(lat, lon)
+    
+
+@app.get("/wind", response_class=HTMLResponse)
+async def serve_wind():
+    with open("static/wind.html", "r", encoding="utf-8") as f:
+        return f.read()
