@@ -331,8 +331,8 @@
           points.push({ lat, lon });
 
       const results = [];
-      for (let i = 0; i < points.length; i += 10) {
-        const batch = points.slice(i, i + 10);
+      for (let i = 0; i < points.length; i += 5) {
+        const batch = points.slice(i, i + 5);
         const fetched = await Promise.all(batch.map(p => fetchWindAtPoint(p.lat, p.lon)));
         results.push(...fetched);
         await new Promise(r => setTimeout(r, 1000));
