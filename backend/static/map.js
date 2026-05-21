@@ -5,6 +5,7 @@ const WIND_BBOX = {
     minLon: 131.5, maxLon: 133.0
 };
 const GRID_STEP_DEG = 0.1;
+const INTERPOLATION_FACTOR = 2; // 2x плотность = шаг 0.05°
 
 let lineFeature = null;
 let ws = null;
@@ -86,26 +87,168 @@ async function fetchWindAtPoint(lat, lon) {
     }
 }
 
+
 async function buildWindGrid() {
-    const points = [];
+    const basePoints = [];
     for (let lat = WIND_BBOX.minLat; lat <= WIND_BBOX.maxLat; lat += GRID_STEP_DEG) {
         for (let lon = WIND_BBOX.minLon; lon <= WIND_BBOX.maxLon; lon += GRID_STEP_DEG) {
-            points.push({ lat, lon });
+            basePoints.push({ lat, lon, isBase: true });
         }
     }
     
-    console.log(`Fetching wind data for ${points.length} points...`);
+    const finePoints = [];
+    for (let lat = WIND_BBOX.minLat; lat < WIND_BBOX.maxLat; lat += GRID_STEP_DEG) {
+        for (let lon = WIND_BBOX.minLon; lon < WIND_BBOX.maxLon; lon += GRID_STEP_DEG) {
+            finePoints.push({ lat: lat + GRID_STEP_DEG/2, lon: lon, isBase: false });
+            finePoints.push({ lat: lat, lon: lon + GRID_STEP_DEG/2, isBase: false });
+            finePoints.push({ lat: lat + GRID_STEP_DEG/2, lon: lon + GRID_STEP_DEG/2, isBase: false });
+            finePoints.push({ lat: lat + GRID_STEP_DEG/2, lon: lon + GRID_STEP_DEG, isBase: false });
+            finePoints.push({ lat: lat + GRID_STEP_DEG, lon: lon + GRID_STEP_DEG/2, isBase: false });
+        }
+    }
     
-    const results = [];
-    for (let i = 0; i < points.length; i += 5) {
-        const batch = points.slice(i, i + 5);
+    const seen = new Set();
+    const allPoints = [...basePoints, ...finePoints].filter(p => {
+        const key = `${p.lat},${p.lon}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return p.lat <= WIND_BBOX.maxLat && p.lon <= WIND_BBOX.maxLon;
+    });
+    
+    console.log(`Fetching wind data for ${allPoints.length} points (${basePoints.length} base + ~${finePoints.length} interpolated)...`);
+    
+    const baseResults = [];
+    for (let i = 0; i < basePoints.length; i += 5) {
+        const batch = basePoints.slice(i, i + 5);
         const fetched = await Promise.all(batch.map(p => fetchWindAtPoint(p.lat, p.lon)));
-        results.push(...fetched);
+        baseResults.push(...fetched);
         await new Promise(r => setTimeout(r, 100));
     }
     
-    console.log(`Fetched ${results.length} wind points`);
-    return results;
+    // === Ключи без toFixed() — используем исходные координаты ===
+    const baseWindMap = new Map();
+    basePoints.forEach((p, i) => {
+        const w = baseResults[i];
+        const key = `${p.lat},${p.lon}`;
+        baseWindMap.set(key, w);
+    });
+    console.log('Map size:', baseWindMap.size);
+    console.log('Sample entry:', baseWindMap.get(`${WIND_BBOX.minLat},${WIND_BBOX.minLon}`));
+    console.log('All keys count:', Array.from(baseWindMap.keys()).length);
+    
+    const fineResults = allPoints
+        .filter(p => !p.isBase)
+        .map(p => interpolateWind(p.lat, p.lon, baseWindMap));
+    
+    console.log(`Fetched ${baseResults.length} base + ${fineResults.length} interpolated = ${baseResults.length + fineResults.length} total wind points`);
+    return [...baseResults, ...fineResults];
+}
+
+function interpolateWind(lat, lon, baseWindMap) {
+    const latBase = Math.floor(lat / GRID_STEP_DEG) * GRID_STEP_DEG;
+    const lonBase = Math.floor(lon / GRID_STEP_DEG) * GRID_STEP_DEG;
+    
+    // === Ключи без toFixed() ===
+    const p00 = baseWindMap.get(`${latBase},${lonBase}`);
+    const p10 = baseWindMap.get(`${latBase + GRID_STEP_DEG},${lonBase}`);
+    const p01 = baseWindMap.get(`${latBase},${lonBase + GRID_STEP_DEG}`);
+    const p11 = baseWindMap.get(`${latBase + GRID_STEP_DEG},${lonBase + GRID_STEP_DEG}`);
+    
+    let speed = 0, dirX = 0, dirY = 0, totalWeight = 0;
+    
+    [p00, p10, p01, p11].forEach(p => {
+        if (!p) return;
+        const latWeight = 1 - Math.abs(p.lat - lat) / GRID_STEP_DEG;
+        const lonWeight = 1 - Math.abs(p.lon - lon) / GRID_STEP_DEG;
+        const weight = latWeight * lonWeight;
+        
+        speed += p.speed * weight;
+        const rad = p.dir * Math.PI / 180;
+        dirX += Math.sin(rad) * weight;
+        dirY += Math.cos(rad) * weight;
+        totalWeight += weight;
+    });
+    
+    if (totalWeight === 0) return { lat, lon, speed: 0, dir: 0 };
+    
+    speed /= totalWeight;
+    
+    const dirLen = Math.sqrt(dirX * dirX + dirY * dirY);
+    let dir;
+    if (dirLen < 0.001) {
+        const nearest = [p00, p10, p01, p11].find(p => p && p.speed > 0.1);
+        dir = nearest ? nearest.dir : 0;
+    } else {
+        dir = (Math.atan2(dirX / dirLen, dirY / dirLen) * 180 / Math.PI + 360) % 360;
+    }
+    
+    return { lat, lon, speed, dir };
+}
+
+function interpolateWind(lat, lon, baseWindMap) {
+    // Округляем до 1 знака после запятой, чтобы избежать 42.79999999999999
+    const latBase = Math.round(Math.floor(lat / GRID_STEP_DEG) * GRID_STEP_DEG * 10) / 10;
+    const lonBase = Math.round(Math.floor(lon / GRID_STEP_DEG) * GRID_STEP_DEG * 10) / 10;
+    
+    const key00 = `${latBase},${lonBase}`;
+    const key10 = `${latBase + GRID_STEP_DEG},${lonBase}`;
+    const key01 = `${latBase},${lonBase + GRID_STEP_DEG}`;
+    const key11 = `${latBase + GRID_STEP_DEG},${lonBase + GRID_STEP_DEG}`;
+    
+    const p00 = baseWindMap.get(key00);
+    const p10 = baseWindMap.get(key10);
+    const p01 = baseWindMap.get(key01);
+    const p11 = baseWindMap.get(key11);
+    
+    // Отладка
+    if (!p00 || !p10 || !p01 || !p11) {
+        console.log('Missing keys for', lat, lon);
+        console.log('  latBase, lonBase:', latBase, lonBase);
+        console.log('  Keys:', key00, key10, key01, key11);
+        console.log('  Has:', baseWindMap.has(key00), baseWindMap.has(key10), baseWindMap.has(key01), baseWindMap.has(key11));
+    }
+    
+    let speed = 0, dirX = 0, dirY = 0, totalWeight = 0;
+    
+    [p00, p10, p01, p11].forEach(p => {
+        if (!p) return;
+        const latWeight = 1 - Math.abs(p.lat - lat) / GRID_STEP_DEG;
+        const lonWeight = 1 - Math.abs(p.lon - lon) / GRID_STEP_DEG;
+        const weight = latWeight * lonWeight;
+        
+        speed += p.speed * weight;
+        const rad = p.dir * Math.PI / 180;
+        dirX += Math.sin(rad) * weight;
+        dirY += Math.cos(rad) * weight;
+        totalWeight += weight;
+    });
+    
+    if (totalWeight === 0) {
+        // Fallback: берём ближайшую базовую точку
+        let nearest = null;
+        let minDist = Infinity;
+        for (const [key, p] of baseWindMap) {
+            const d = Math.abs(p.lat - lat) + Math.abs(p.lon - lon);
+            if (d < minDist) {
+                minDist = d;
+                nearest = p;
+            }
+        }
+        return nearest ? { lat, lon, speed: nearest.speed, dir: nearest.dir } : { lat, lon, speed: 0, dir: 0 };
+    }
+    
+    speed /= totalWeight;
+    
+    const dirLen = Math.sqrt(dirX * dirX + dirY * dirY);
+    let dir;
+    if (dirLen < 0.001) {
+        const nearest = [p00, p10, p01, p11].find(p => p && p.speed > 0.1);
+        dir = nearest ? nearest.dir : 0;
+    } else {
+        dir = (Math.atan2(dirX / dirLen, dirY / dirLen) * 180 / Math.PI + 360) % 360;
+    }
+    
+    return { lat, lon, speed, dir };
 }
 
 function drawWindLayer(windData) {
@@ -118,23 +261,29 @@ function drawWindLayer(windData) {
     
     windData.forEach(({ lat, lon, speed, dir }) => {
         const stroke = windColor(speed);
-        const len = 8 + speed * 2.5;
-        const lw = 1 + speed * 0.1;
+        const len = 14 + speed * 3.5;
+        const lw = 2 + speed * 0.15;
+        
+        const tipY = (len * 0.7).toFixed(2);
+        const headBaseY = Math.max(len * 0.7 - 10, 2).toFixed(2);
+        const tailY = (len * 0.3).toFixed(2);
+        const lineWidth = Math.max(lw, 1).toFixed(2);
+        const rotation = (dir + 180).toFixed(2);
 
         const svg = `
-            <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="-32 -32 64 64">
+            <svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="-48 -48 96 96">
             <line
-                x1="0" y1="${len * 0.3}"
-                x2="0" y2="-${len * 0.7}"
+                x1="0" y1="${tailY}"
+                x2="0" y2="-${tipY}"
                 stroke="${stroke}"
-                stroke-width="${lw}"
+                stroke-width="${lineWidth}"
                 stroke-linecap="round"
-                transform="rotate(${dir + 180})"
+                transform="rotate(${rotation})"
             />
             <polygon
-                points="0,-${len * 0.7} -3,-${len * 0.7 - 6} 3,-${len * 0.7 - 6}"
+                points="0,-${tipY} -5,-${headBaseY} 5,-${headBaseY}"
                 fill="${stroke}"
-                transform="rotate(${dir + 180})"
+                transform="rotate(${rotation})"
             />
             </svg>`;
 
