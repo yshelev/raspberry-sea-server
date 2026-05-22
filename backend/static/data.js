@@ -14,7 +14,6 @@ const lagSpan = document.getElementById('lagData');
 const nextPointIndexSpan = document.getElementById('nextPointIndex');
 const nextPointDistanceSpan = document.getElementById('nextPointDistance');
 const nextPointBearingSpan = document.getElementById('nextPointBearing');
-const gotoMapBtn = document.getElementById('gotoMapBtn');
 
 // Загрузка маршрута из localStorage
 function loadRouteFromStorage() {
@@ -209,16 +208,24 @@ function connectWebSocket() {
     };
 }
 
-function goToMap() {
-    window.location.href = '/map';
-}
-
 function init() {
+    // Кнопки навигации
+    const gotoMapBtn = document.getElementById('gotoMapBtn');
+    const gotoPolarBtn = document.getElementById('gotoPolarBtn');
+    const gotoWindBtn = document.getElementById('gotoWindBtn');
+    
     if (gotoMapBtn) {
-        gotoMapBtn.addEventListener('click', goToMap);
+        gotoMapBtn.addEventListener('click', () => window.location.href = '/map');
     }
     
-    // Загружаем маршрут из localStorage
+    if (gotoPolarBtn) {
+        gotoPolarBtn.addEventListener('click', () => window.location.href = '/polar-view');
+    }
+    
+    if (gotoWindBtn) {
+        gotoWindBtn.addEventListener('click', () => window.location.href = '/wind');
+    }
+    
     loadRouteFromStorage();
     
     connectWebSocket();

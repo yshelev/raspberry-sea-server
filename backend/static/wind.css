@@ -192,35 +192,29 @@ body {
 
 /* === Buttons === */
 .buttons {
-    display: grid;
-    grid-template-columns: 1fr 1fr auto;
-    gap: 6px;
     margin-top: 15px;
 }
 
 .btn {
+    width: 100%;
     background: var(--btn-bg);
     color: var(--btn-fg);
     border: 1px solid var(--btn-border);
     border-radius: 6px;
-    padding: 12px 8px;
-    font-size: 11px;
+    padding: 14px 24px;
+    font-size: 13px;
     font-weight: 600;
     cursor: pointer;
     text-transform: uppercase;
     letter-spacing: 0.5px;
     text-decoration: none;
     text-align: center;
-    display: inline-block;
+    display: block;
     transition: all 0.2s;
-}
-
-.icon-btn {
-    padding: 12px;
-    font-size: 16px;
 }
 
 .btn:hover {
     background: var(--btn-hover-bg);
     color: var(--btn-hover-fg);
+    transform: scale(1.02);
 }
