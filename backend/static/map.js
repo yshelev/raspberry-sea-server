@@ -5,7 +5,7 @@ const WIND_BBOX = {
     minLon: 131.5, maxLon: 133.0
 };
 const GRID_STEP_DEG = 0.1;
-const INTERPOLATION_FACTOR = 2; // 2x плотность = шаг 0.05°
+const INTERPOLATION_FACTOR = 2;
 
 let lineFeature = null;
 let ws = null;
@@ -21,14 +21,32 @@ let currentTargetMarker = null;
 let YMapDefaultMarkerClass = null;
 let ARRIVAL_THRESHOLD_M = 100;
 
-function updateConnectionStatus(connected) {
-    const statusIndicator = document.getElementById('connectionStatus');
-    if (connected) {
-        statusIndicator.innerHTML = '✓';
-        statusIndicator.title = 'Connected';
-    } else {
-        statusIndicator.innerHTML = '✗';
-        statusIndicator.title = 'Disconnected';
+function saveRouteToStorage() {
+    const routeData = {
+        waypoints: waypointsList.map(wp => ({ lat: wp.lat, lon: wp.lon })),
+        currentTargetIndex: currentTargetIndex,
+        timestamp: Date.now()
+    };
+    localStorage.setItem('sailing_route', JSON.stringify(routeData));
+    console.log('Route saved to localStorage');
+}
+
+function loadRouteFromStorage() {
+    const saved = localStorage.getItem('sailing_route');
+    if (saved) {
+        try {
+            const routeData = JSON.parse(saved);
+            if (Date.now() - routeData.timestamp < 3600000) {
+                routeData.waypoints.forEach(wp => {
+                    addPoint([wp.lon, wp.lat]);
+                });
+                currentTargetIndex = routeData.currentTargetIndex;
+                updateCurrentTarget();
+                console.log('Route loaded from localStorage');
+            }
+        } catch (e) {
+            console.error('Error loading route from storage:', e);
+        }
     }
 }
 
@@ -39,7 +57,6 @@ function updateArrivalThreshold() {
         ARRIVAL_THRESHOLD_M = parseInt(slider.value);
         valueDisplay.textContent = ARRIVAL_THRESHOLD_M;
         console.log(`Arrival threshold updated to ${ARRIVAL_THRESHOLD_M} meters`);
-        updateNextPointInfo();
         if (radarMode) updateRadarPoints();
     }
 }
@@ -87,7 +104,6 @@ async function fetchWindAtPoint(lat, lon) {
     }
 }
 
-
 async function buildWindGrid() {
     const basePoints = [];
     for (let lat = WIND_BBOX.minLat; lat <= WIND_BBOX.maxLat; lat += GRID_STEP_DEG) {
@@ -115,7 +131,7 @@ async function buildWindGrid() {
         return p.lat <= WIND_BBOX.maxLat && p.lon <= WIND_BBOX.maxLon;
     });
     
-    console.log(`Fetching wind data for ${allPoints.length} points (${basePoints.length} base + ~${finePoints.length} interpolated)...`);
+    console.log(`Fetching wind data for ${allPoints.length} points...`);
     
     const baseResults = [];
     for (let i = 0; i < basePoints.length; i += 5) {
@@ -125,68 +141,22 @@ async function buildWindGrid() {
         await new Promise(r => setTimeout(r, 100));
     }
     
-    // === Ключи без toFixed() — используем исходные координаты ===
     const baseWindMap = new Map();
     basePoints.forEach((p, i) => {
         const w = baseResults[i];
         const key = `${p.lat},${p.lon}`;
         baseWindMap.set(key, w);
     });
-    console.log('Map size:', baseWindMap.size);
-    console.log('Sample entry:', baseWindMap.get(`${WIND_BBOX.minLat},${WIND_BBOX.minLon}`));
-    console.log('All keys count:', Array.from(baseWindMap.keys()).length);
     
     const fineResults = allPoints
         .filter(p => !p.isBase)
         .map(p => interpolateWind(p.lat, p.lon, baseWindMap));
     
-    console.log(`Fetched ${baseResults.length} base + ${fineResults.length} interpolated = ${baseResults.length + fineResults.length} total wind points`);
+    console.log(`Fetched ${baseResults.length} base + ${fineResults.length} interpolated points`);
     return [...baseResults, ...fineResults];
 }
 
 function interpolateWind(lat, lon, baseWindMap) {
-    const latBase = Math.floor(lat / GRID_STEP_DEG) * GRID_STEP_DEG;
-    const lonBase = Math.floor(lon / GRID_STEP_DEG) * GRID_STEP_DEG;
-    
-    // === Ключи без toFixed() ===
-    const p00 = baseWindMap.get(`${latBase},${lonBase}`);
-    const p10 = baseWindMap.get(`${latBase + GRID_STEP_DEG},${lonBase}`);
-    const p01 = baseWindMap.get(`${latBase},${lonBase + GRID_STEP_DEG}`);
-    const p11 = baseWindMap.get(`${latBase + GRID_STEP_DEG},${lonBase + GRID_STEP_DEG}`);
-    
-    let speed = 0, dirX = 0, dirY = 0, totalWeight = 0;
-    
-    [p00, p10, p01, p11].forEach(p => {
-        if (!p) return;
-        const latWeight = 1 - Math.abs(p.lat - lat) / GRID_STEP_DEG;
-        const lonWeight = 1 - Math.abs(p.lon - lon) / GRID_STEP_DEG;
-        const weight = latWeight * lonWeight;
-        
-        speed += p.speed * weight;
-        const rad = p.dir * Math.PI / 180;
-        dirX += Math.sin(rad) * weight;
-        dirY += Math.cos(rad) * weight;
-        totalWeight += weight;
-    });
-    
-    if (totalWeight === 0) return { lat, lon, speed: 0, dir: 0 };
-    
-    speed /= totalWeight;
-    
-    const dirLen = Math.sqrt(dirX * dirX + dirY * dirY);
-    let dir;
-    if (dirLen < 0.001) {
-        const nearest = [p00, p10, p01, p11].find(p => p && p.speed > 0.1);
-        dir = nearest ? nearest.dir : 0;
-    } else {
-        dir = (Math.atan2(dirX / dirLen, dirY / dirLen) * 180 / Math.PI + 360) % 360;
-    }
-    
-    return { lat, lon, speed, dir };
-}
-
-function interpolateWind(lat, lon, baseWindMap) {
-    // Округляем до 1 знака после запятой, чтобы избежать 42.79999999999999
     const latBase = Math.round(Math.floor(lat / GRID_STEP_DEG) * GRID_STEP_DEG * 10) / 10;
     const lonBase = Math.round(Math.floor(lon / GRID_STEP_DEG) * GRID_STEP_DEG * 10) / 10;
     
@@ -199,14 +169,6 @@ function interpolateWind(lat, lon, baseWindMap) {
     const p10 = baseWindMap.get(key10);
     const p01 = baseWindMap.get(key01);
     const p11 = baseWindMap.get(key11);
-    
-    // Отладка
-    if (!p00 || !p10 || !p01 || !p11) {
-        console.log('Missing keys for', lat, lon);
-        console.log('  latBase, lonBase:', latBase, lonBase);
-        console.log('  Keys:', key00, key10, key01, key11);
-        console.log('  Has:', baseWindMap.has(key00), baseWindMap.has(key10), baseWindMap.has(key01), baseWindMap.has(key11));
-    }
     
     let speed = 0, dirX = 0, dirY = 0, totalWeight = 0;
     
@@ -224,7 +186,6 @@ function interpolateWind(lat, lon, baseWindMap) {
     });
     
     if (totalWeight === 0) {
-        // Fallback: берём ближайшую базовую точку
         let nearest = null;
         let minDist = Infinity;
         for (const [key, p] of baseWindMap) {
@@ -327,90 +288,7 @@ function updateWaypointsList() {
         marker: point,
         index: index
     }));
-    
-    updateNextPointInfo();
-}
-
-function updateNextPointInfo() {
-    const nextPointDiv = document.getElementById('nextPointInfo');
-    
-    if (waypointsList.length === 0) {
-        nextPointDiv.innerHTML = `
-            <div class="data-row">
-                <span class="label">Next point:</span>
-                <span class="value">Waiting...</span>
-            </div>
-            <div class="data-row">
-                <span class="label">Distance:</span>
-                <span class="value">Waiting...</span>
-            </div>
-            <div class="data-row">
-                <span class="label">Bearing:</span>
-                <span class="value">Waiting...</span>
-            </div>
-        `;
-        return;
-    }
-    
-    if (currentTargetIndex >= waypointsList.length) {
-        nextPointDiv.innerHTML = `
-            <div class="data-row">
-                <span class="label">Next point:</span>
-                <span class="value">Completed!</span>
-            </div>
-            <div class="data-row">
-                <span class="label">Distance:</span>
-                <span class="value">0 m</span>
-            </div>
-            <div class="data-row">
-                <span class="label">Bearing:</span>
-                <span class="value">0°</span>
-            </div>
-        `;
-        return;
-    }
-    
-    const target = waypointsList[currentTargetIndex];
-    if (currentBoatPosition) {
-        const distance = calculateDistance(
-            currentBoatPosition.lat, currentBoatPosition.lon,
-            target.lat, target.lon
-        );
-        const distanceMeters = distance * 1000;
-        const bearing = calculateBearing(
-            currentBoatPosition.lat, currentBoatPosition.lon,
-            target.lat, target.lon
-        );
-        nextPointDiv.innerHTML = `
-            <div class="data-row">
-                <span class="label">Next point:</span>
-                <span class="value">${currentTargetIndex + 1}/${waypointsList.length}</span>
-            </div>
-            <div class="data-row">
-                <span class="label">Distance:</span>
-                <span class="value">${distanceMeters.toFixed(0)} m</span>
-            </div>
-            <div class="data-row">
-                <span class="label">Bearing:</span>
-                <span class="value">${bearing.toFixed(0)}°</span>
-            </div>
-        `;
-    } else {
-        nextPointDiv.innerHTML = `
-            <div class="data-row">
-                <span class="label">Next point:</span>
-                <span class="value">${currentTargetIndex + 1}/${waypointsList.length}</span>
-            </div>
-            <div class="data-row">
-                <span class="label">Distance:</span>
-                <span class="value">Waiting...</span>
-            </div>
-            <div class="data-row">
-                <span class="label">Bearing:</span>
-                <span class="value">Waiting...</span>
-            </div>
-        `;
-    }
+    saveRouteToStorage();
 }
 
 async function updateCurrentTarget() {
@@ -420,7 +298,7 @@ async function updateCurrentTarget() {
 
     if (currentTargetIndex < waypointsList.length) {
         const target = waypointsList[currentTargetIndex];
-        currentTargetCoordinates = [target.lon, target.lat];
+        const currentTargetCoordinates = [target.lon, target.lat];
 
         const { YMapDefaultMarker } = await ymaps3.import('@yandex/ymaps3-default-ui-theme');
         currentTargetMarker = new YMapDefaultMarker({
@@ -431,15 +309,11 @@ async function updateCurrentTarget() {
         });
         map.addChild(currentTargetMarker);
 
-        updateNextPointInfo();
-
         if (radarMode) updateRadarPoints();
     } else if (waypointsList.length > 0) {
-        updateNextPointInfo();
         if (radarMode) document.getElementById('radarPoints').innerHTML = '';
-    } else {
-        document.getElementById('nextPointInfo').innerHTML = '<div class="data-row"><span class="label">Status:</span><span class="value">No route</span></div>';
     }
+    saveRouteToStorage();
 }
 
 function checkArrival() {
@@ -512,8 +386,6 @@ function updateRadarPoints() {
     pointDiv.style.top = `${y}%`;
     pointDiv.title = `Target ${currentTargetIndex + 1}\nAzimut: ${bearing.toFixed(1)}°\nDistance: ${distanceMeters.toFixed(0)} m`;
     radarPointsDiv.appendChild(pointDiv);
-
-    updateNextPointInfo();
 }
 
 function toggleRadarMode() {
@@ -524,7 +396,7 @@ function toggleRadarMode() {
     if (radarMode) {
         mapDiv.style.display = 'none';
         radarContainer.style.display = 'block';
-        toggleBtn.innerHTML = 'Map mode';
+        toggleBtn.innerHTML = 'Карта';
         drawRadarGrid();
         updateRadarPoints();
     } else {
@@ -540,7 +412,7 @@ function connectWebSocket() {
     ws = new WebSocket(wsUrl);
 
     ws.onopen = () => {
-        updateConnectionStatus(true);
+        console.log('WebSocket connected');
     };
 
     ws.onmessage = (event) => {
@@ -548,30 +420,14 @@ function connectWebSocket() {
             const data = JSON.parse(event.data);
             if (data.type === 'gps') {
                 const gps = data.data;
-                document.getElementById('gpsData').innerHTML = 
-                    `${gps.lat?.toFixed(6) || '?'}°, ${gps.lon?.toFixed(6) || '?'}°`;
                 if (gps.lon && gps.lat) {
                     currentBoatPosition = { lat: gps.lat, lon: gps.lon };
                     updateBoatMarker([gps.lon, gps.lat]);
                     checkArrival();
                     if (radarMode) updateRadarPoints();
-                    updateNextPointInfo();
                 }
-            } else if (data.type === 'wind') {
-                const wind = data.data;
-                document.getElementById('windData').innerHTML = 
-                    `${wind.aws || 0} m/s, ${wind.direction || 0}°`;
-            } else if (data.type === 'true_wind') {
-                const trueWind = data.data;
-                document.getElementById('trueWindData').innerHTML = 
-                    `${trueWind.tws?.toFixed(1) || 0} m/s, ${trueWind.twd?.toFixed(0) || 0}°`;
-            } else if (data.type === 'depth') {
-                document.getElementById('depthData').innerHTML = 
-                    `${data.data.depth_m || 0} m`;
             } else if (data.type === 'lag') {
                 const lag = data.data;
-                document.getElementById('lagData').innerHTML = 
-                    `${lag.speed_knots || 0} knots`;
                 if (lag.course !== undefined && lag.course !== null) {
                     currentBoatCourse = lag.course;
                     if (radarMode) updateRadarPoints();
@@ -582,12 +438,12 @@ function connectWebSocket() {
         }
     };
 
-    ws.onerror = () => {
-        updateConnectionStatus(false);
+    ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
     };
 
     ws.onclose = () => {
-        updateConnectionStatus(false);
+        console.log('WebSocket closed, reconnecting in 3s...');
         ws = null;
         setTimeout(connectWebSocket, 3000);
     };
@@ -624,8 +480,6 @@ function addPoint(coordinates) {
         updateCurrentTarget();
     }
     
-    updateNextPointInfo();
-    
     if (radarMode) {
         updateRadarPoints();
     }
@@ -640,8 +494,7 @@ async function main() {
         YMapDefaultSchemeLayer,
         YMapDefaultFeaturesLayer,
         YMapControls,
-        YMapControlButton,
-        YMapFeature
+        YMapControlButton
     } = ymaps3;
 
     ymaps3.import.registerCdn('https://cdn.jsdelivr.net/npm/{package}', [
@@ -666,8 +519,6 @@ async function main() {
     map.addChild(new YMapDefaultFeaturesLayer());
 
     const clickHandler = async (object, data) => {
-        console.log(object);
-        console.log(data);
         if (points.length == 0 || points[points.length - 1].coordinates != object?.entity?.coordinates) {
             addPoint(data.coordinates);
         }
@@ -680,14 +531,13 @@ async function main() {
             if (radarMode) {
                 updateRadarPoints();
             }
-            updateNextPointInfo();
         }
     };
 
     map.addChild(new YMapListener({
         layer: 'any',
         onClick: clickHandler,
-        onPointerMove: dragHandler
+        onDrag: dragHandler
     }));
 
     const controls = new YMapControls({position: 'top right'});
@@ -722,11 +572,10 @@ async function main() {
                 currentTargetMarker = null;
             }
             
-            updateNextPointInfo();
-            
             if (radarMode) {
                 document.getElementById('radarPoints').innerHTML = '';
             }
+            saveRouteToStorage();
         }
     });
     
@@ -739,13 +588,23 @@ async function main() {
     if (distanceSlider) {
         distanceSlider.addEventListener('input', updateArrivalThreshold);
     }
+    
+    const dataPageBtn = document.getElementById('dataPageBtn');
+    if (dataPageBtn) {
+        dataPageBtn.addEventListener('click', () => {
+            window.location.href = '/data';
+        });
+    }
+    
+    const radarToggleBtn = document.getElementById('radarToggle');
+    if (radarToggleBtn) {
+        radarToggleBtn.addEventListener('click', toggleRadarMode);
+    }
+    
     updateArrivalThreshold();
-    
     connectWebSocket();
-    updateConnectionStatus(false);
     
-    updateNextPointInfo();
-    document.getElementById('radarToggle').addEventListener('click', toggleRadarMode);
+    loadRouteFromStorage();
     
     buildWindGrid().then(drawWindLayer).catch(err => {
         console.error('Wind load error:', err);

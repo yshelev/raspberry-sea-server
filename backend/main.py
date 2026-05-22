@@ -166,6 +166,12 @@ async def serve_polar_viewer():
 async def serve_wind():
     with open("static/wind.html", "r", encoding="utf-8") as f:
         return f.read()
+    
+@app.get("/data", response_class=HTMLResponse)
+async def serve_wind():
+    with open("static/data.html", "r", encoding="utf-8") as f:
+        return f.read()
+
 @app.get("/api/wind")
 async def get_wind(lat: float, lon: float):
     return await fetch_wind_at_point(lat, lon)

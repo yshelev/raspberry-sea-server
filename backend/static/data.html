@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Навигационные данные</title>
+    <link rel="stylesheet" href="static/data.css">
+    <link rel="icon" type="image/png" href="/static/favicon.png">
+</head>
+<body>
+    <div class="container">
+        <div class="data-panel">
+            <h3>
+                Sailing Data
+                <span class="status-indicator" id="connectionStatus">✗</span>
+            </h3>
+            <div class="data-row">
+                <span class="label">GPS:</span>
+                <span class="value" id="gpsData">Waiting...</span>
+            </div>
+            <div class="data-row">
+                <span class="label">Wind:</span>
+                <span class="value" id="windData">Waiting...</span>
+            </div>
+            <div class="data-row">
+                <span class="label">True Wind:</span>
+                <span class="value" id="trueWindData">Waiting...</span>
+            </div>
+            <div class="data-row">
+                <span class="label">Depth:</span>
+                <span class="value" id="depthData">Waiting...</span>
+            </div>
+            <div class="data-row">
+                <span class="label">Lag:</span>
+                <span class="value" id="lagData">Waiting...</span>
+            </div>
+        </div>
+
+        <div class="next-point-panel" id="nextPointPanel">
+            <h3>Next Point Info</h3>
+            <div class="data-row">
+                <span class="label">Next point:</span>
+                <span class="value" id="nextPointIndex">—</span>
+            </div>
+            <div class="data-row">
+                <span class="label">Distance:</span>
+                <span class="value" id="nextPointDistance">—</span>
+            </div>
+            <div class="data-row">
+                <span class="label">Bearing:</span>
+                <span class="value" id="nextPointBearing">—</span>
+            </div>
+        </div>
+
+        <div class="map-link">
+            <button id="gotoMapBtn" class="map-button">🗺 Открыть карту</button>
+        </div>
+    </div>
+
+    <script src="static/data.js"></script>
+</body>
+</html>

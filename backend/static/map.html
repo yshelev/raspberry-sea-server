@@ -20,48 +20,21 @@
     </div>
   </div>
 
-  <div class="data-panel">
-    <h3>
-      Sailing Data
-      <span class="status-indicator" id="connectionStatus">✗</span>
-    </h3>
-    <div class="data-row">
-      <span class="label">GPS:</span>
-      <span class="value" id="gpsData">Waiting...</span>
-    </div>
-    <div class="data-row">
-      <span class="label">Wind:</span>
-      <span class="value" id="windData">Waiting...</span>
-    </div>
-    <div class="data-row">
-      <span class="label">True Wind:</span>
-      <span class="value" id="trueWindData">Waiting...</span>
-    </div>
-    <div class="data-row">
-      <span class="label">Depth:</span>
-      <span class="value" id="depthData">Waiting...</span>
-    </div>
-    <div class="data-row">
-      <span class="label">Lag:</span>
-      <span class="value" id="lagData">Waiting...</span>
-    </div>
-  </div>
-
-  <div class="radar-toggle" id="radarToggle">
-    Режим радара
-  </div>
-
-  <div class="distance-control">
-    <div class="distance-label">
+  <div class="bottom-panel">
+    <div class="distance-control">
+      <div class="distance-label">
         <span>Дистанция достижения цели</span>
         <span id="distanceValue" class="distance-value">100</span>
         <span>м</span>
+      </div>
+      <input type="range" id="arrivalDistance" min="10" max="1000" value="100" step="10">
     </div>
-    <input type="range" id="arrivalDistance" min="10" max="1000" value="100" step="10">
-</div>
-
-  <div class="next-point-info" id="nextPointInfo">
-    Маршрут пуст. Нажмите на карту, чтобы добавить точки.
+    <div class="button-group">
+      <button class="control-button" id="radarToggle">Режим радара</button>
+      <button class="control-button" id="dataPageBtn">Данные</button>
+    </div>
   </div>
+
   <script src="static/map.js"></script>
 </body>
+</html>

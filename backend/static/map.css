@@ -2,75 +2,17 @@ body {
     margin: 0;
     padding: 0;
     font-family: monospace;
+    overflow: hidden;
 }
+
 #map {
     width: 100%;
     height: 100vh;
 }
-.data-panel {
-    position: absolute;
-    top: 20px;
-    left: 20px;
-    z-index: 1000;
-    background: rgba(0, 0, 0, 0.8);
-    backdrop-filter: blur(10px);
-    border-radius: 10px;
-    padding: 15px;
-    color: white;
-    min-width: 230px;
-    font-size: 13px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    font-family: monospace;
-}
-.data-panel h3 {
-    margin: 0 0 10px 0;
-    font-size: 14px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.3);
-    padding-bottom: 5px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-.data-panel .status-indicator {
-    font-size: 16px;
-}
-.data-panel .data-row {
-    margin-bottom: 8px;
-}
-.data-panel .label {
-    color: #aaa;
-    display: inline-block;
-    width: 80px;
-    font-size: 13px;
-}
-.data-panel .value {
-    color: #4ade80;
-    font-weight: bold;
-    font-size: 13px;
-}
-.radar-toggle {
-    position: absolute;
-    bottom: 20px;
-    left: 20px;
-    z-index: 1000;
-    padding: 10px 20px;
-    background: rgba(0, 0, 0, 0.8);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 10px;
-    color: white;
-    cursor: pointer;
-    font-family: monospace;
-    font-size: 14px;
-    font-weight: bold;
-    transition: all 0.3s;
-}
-.radar-toggle:hover {
-    background: rgba(0, 0, 0, 0.9);
-    border-color: #4ade80;
-}
+
+/* Радар контейнер */
 .radar-container {
-    position: absolute;
+    position: fixed;
     top: 0;
     left: 0;
     width: 100%;
@@ -79,19 +21,21 @@ body {
     z-index: 500;
     display: none;
 }
+
 .radar-canvas {
     position: relative;
-    top: 50%;
+    top: 45%;
     left: 50%;
     transform: translate(-50%, -50%);
-    width: 80vmin;
-    height: 80vmin;
+    width: 60vmin;
+    height: 60vmin;
     border-radius: 50%;
     border: 2px solid #333;
     background: #f5f5f5;
     overflow: visible;
     box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
 }
+
 .radar-rotation-layer {
     position: absolute;
     top: 0;
@@ -102,6 +46,7 @@ body {
     transform-origin: center center;
     transition: transform 0.3s ease;
 }
+
 .radar-center {
     position: absolute;
     top: 50%;
@@ -113,6 +58,7 @@ body {
     transform: translate(-50%, -50%);
     z-index: 10;
 }
+
 .radar-points {
     position: absolute;
     top: 0;
@@ -120,6 +66,7 @@ body {
     width: 100%;
     height: 100%;
 }
+
 .radar-point {
     position: absolute;
     width: 14px;
@@ -131,6 +78,7 @@ body {
     box-shadow: 0 0 12px rgba(255, 170, 0, 0.8);
     z-index: 20;
 }
+
 .radar-grid {
     position: absolute;
     top: 0;
@@ -139,6 +87,7 @@ body {
     height: 100%;
     border-radius: 50%;
 }
+
 .radar-grid-circle {
     position: absolute;
     top: 50%;
@@ -147,6 +96,7 @@ body {
     border-radius: 50%;
     border: 1px solid #ccc;
 }
+
 .radar-grid-line {
     position: absolute;
     top: 0;
@@ -156,6 +106,7 @@ body {
     background: #ccc;
     transform: translateX(-50%);
 }
+
 .radar-grid-line-horizontal {
     position: absolute;
     top: 50%;
@@ -165,6 +116,7 @@ body {
     background: #ccc;
     transform: translateY(-50%);
 }
+
 .radar-direction {
     position: absolute;
     top: -20px;
@@ -178,19 +130,22 @@ body {
     z-index: 20;
 }
 
-.distance-control {
-    position: absolute;
-    bottom: 70px;
-    left: 20px;
+/* НИЖНЯЯ ПАНЕЛЬ - компактная */
+.bottom-panel {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
     z-index: 1000;
-    background: rgba(0, 0, 0, 0.8);
-    backdrop-filter: blur(10px);
-    border-radius: 10px;
-    padding: 12px 15px;
-    color: white;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(15px);
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+    padding: 12px 20px 15px 20px;
     font-family: monospace;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    min-width: 230px;
+}
+
+.distance-control {
+    margin-bottom: 10px;
 }
 
 .distance-label {
@@ -222,8 +177,8 @@ input[type="range"]:focus {
 
 input[type="range"]::-webkit-slider-thumb {
     -webkit-appearance: none;
-    width: 14px;
-    height: 14px;
+    width: 16px;
+    height: 16px;
     border-radius: 50%;
     background: #4ade80;
     cursor: pointer;
@@ -235,35 +190,30 @@ input[type="range"]::-webkit-slider-thumb:hover {
     transform: scale(1.1);
 }
 
-.next-point-info {
-    position: absolute;
-    top: 215px;
-    left: 20px;
-    z-index: 1000;
-    background: rgba(0, 0, 0, 0.8);
-    backdrop-filter: blur(10px);
-    border-radius: 10px;
-    padding: 15px;
-    color: white;
-    min-width: 230px;
-    font-size: 13px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    font-family: monospace;
+.button-group {
+    display: flex;
+    gap: 12px;
+    margin-top: 8px;
 }
 
-.next-point-info .data-row {
-    margin-bottom: 8px;
-}
-
-.next-point-info .label {
-    color: #aaa;
-    display: inline-block;
-    width: 80px;
-    font-size: 13px;
-}
-
-.next-point-info .value {
+.control-button {
+    flex: 1;
+    padding: 8px 16px;
+    background: rgba(20, 20, 40, 0.9);
+    border: 1px solid rgba(74, 222, 128, 0.5);
+    border-radius: 8px;
     color: #4ade80;
+    cursor: pointer;
+    font-family: monospace;
+    font-size: 14px;
     font-weight: bold;
-    font-size: 13px;
+    transition: all 0.3s;
+    text-align: center;
+}
+
+.control-button:hover {
+    background: #4ade80;
+    color: #1a1a2e;
+    border-color: #4ade80;
+    transform: translateY(-1px);
 }
