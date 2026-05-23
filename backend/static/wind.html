@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <link rel="icon" type="image/png" href="/static/favicon.png">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
     <title>Azimut - Wind Dashboard</title>
     <link rel="stylesheet" href="static/wind.css">
 </head>
@@ -14,28 +14,29 @@
 
     <div class="app">
         <div class="compass-container">
-            <canvas id="windCompass" width="300" height="300"></canvas>
-            <div class="compass-label">Boat heading up</div>
+            <canvas id="windCompass" width="400" height="400"></canvas>
         </div>
 
         <div class="wind-panel">
             <div class="wind-item">
                 <div class="wind-label">TWA</div>
                 <div class="wind-value" id="twa">—°</div>
+                <div class="wind-unit">Угол ветра</div>
             </div>
             <div class="wind-item">
                 <div class="wind-label">TWD</div>
                 <div class="wind-value" id="twd">—°</div>
+                <div class="wind-unit">Направление</div>
             </div>
             <div class="wind-item">
-                <div class="wind-label">TWS</div>
-                <div class="wind-value" id="tws">—</div>
-                <div class="wind-unit">kts</div>
+                <div class="wind-label">SPEED</div>
+                <div class="wind-value" id="boatSpeed">—</div>
+                <div class="wind-unit">Узлов</div>
             </div>
         </div>
 
         <div class="buttons">
-            <button class="btn" id="dataPageBtn">данные</button>
+            <button class="btn" id="dataPageBtn">ДАННЫЕ</button>
         </div>
     </div>
 

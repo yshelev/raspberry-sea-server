@@ -33,7 +33,6 @@ window.toggleTheme = function() {
         localStorage.setItem('theme', 'light');
     }
     
-    // Перерисовываем компас после смены темы
     if (dashboard) {
         dashboard.drawCompass();
     }
@@ -44,31 +43,29 @@ class WindDashboard {
     constructor() {
         this.canvas = document.getElementById('windCompass');
         this.ctx = this.canvas.getContext('2d');
-        this.centerX = this.canvas.width / 2;
-        this.centerY = this.canvas.height / 2;
-        this.radius = 120;
-
+        
         this.tws = 0;
         this.twa = 0;
         this.twd = 0;
+        this.boatSpeed = 0;
 
         this.ws = null;
         this.reconnectInterval = 3000;
 
         this.init();
+        this.resizeCanvas();
+        
+        window.addEventListener('resize', () => this.resizeCanvas());
     }
 
     init() {
-        // Инициализация темы
         window.initTheme();
         
-        // Обработчик кнопки темы
         const themeBtn = document.getElementById('themeBtn');
         if (themeBtn) {
             themeBtn.onclick = window.toggleTheme;
         }
         
-        // Кнопка перехода на страницу данных
         const dataPageBtn = document.getElementById('dataPageBtn');
         if (dataPageBtn) {
             dataPageBtn.addEventListener('click', () => {
@@ -93,8 +90,26 @@ class WindDashboard {
             text: isLight ? '#6b7280' : '#9ca3af',
             grid: isLight ? '#f3f4f6' : '#1e293b',
             tick: isLight ? '#d1d5db' : '#475569',
-            tickMajor: isLight ? '#9ca3af' : '#94a3b8'
+            tickMajor: isLight ? '#9ca3af' : '#94a3b8',
+            centerDot: isLight ? '#d1d5db' : '#64748b',
+            value: isLight ? '#4f46e5' : '#a5b4fc'
         };
+    }
+
+    resizeCanvas() {
+        const maxSize = Math.min(window.innerWidth, window.innerHeight) - 40;
+        const size = Math.min(maxSize, 500);
+        
+        this.canvas.width = size;
+        this.canvas.height = size;
+        this.canvas.style.width = `${size}px`;
+        this.canvas.style.height = `${size}px`;
+        
+        this.centerX = this.canvas.width / 2;
+        this.centerY = this.canvas.height / 2;
+        this.radius = this.canvas.width / 2 - 12;
+        
+        this.drawCompass();
     }
 
     connect() {
@@ -105,7 +120,6 @@ class WindDashboard {
 
         this.ws.onopen = () => {
             console.log('Wind WebSocket connected');
-            this.setStatus(true, 'Connected');
         };
 
         this.ws.onmessage = (event) => {
@@ -119,19 +133,12 @@ class WindDashboard {
 
         this.ws.onclose = () => {
             console.log('Wind WebSocket closed, reconnecting...');
-            this.setStatus(false, 'Reconnecting...');
             setTimeout(() => this.connect(), this.reconnectInterval);
         };
 
         this.ws.onerror = (err) => {
             console.error('Wind WebSocket error:', err);
-            this.setStatus(false, 'Connection error');
         };
-    }
-
-    setStatus(connected, text) {
-        // Можно добавить индикатор статуса в HTML при необходимости
-        console.log('Status:', connected ? 'Connected' : 'Disconnected', text);
     }
 
     handleMessage(msg) {
@@ -143,9 +150,10 @@ class WindDashboard {
                 this.tws = data.tws || 0;
                 this.twa = data.twa || 0;
                 this.twd = data.twd || 0;
+                this.boatSpeed = data.boat_speed || 0;
                 this.updateDisplay('twa', Math.round(this.twa) + '°');
                 this.updateDisplay('twd', Math.round(this.twd) + '°');
-                this.updateDisplay('tws', this.tws.toFixed(1));
+                this.updateDisplay('boatSpeed', this.boatSpeed.toFixed(1));
                 break;
         }
     }
@@ -183,25 +191,22 @@ class WindDashboard {
 
         ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
-        // Фон компаса
         ctx.beginPath();
         ctx.arc(cx, cy, r, 0, Math.PI * 2);
         ctx.fillStyle = isLight ? '#ffffff' : '#0f1117';
         ctx.fill();
         ctx.strokeStyle = colors.tickMajor;
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 3;
         ctx.stroke();
 
-        // Концентрические круги
         for (let i = 1; i <= 4; i++) {
             ctx.beginPath();
             ctx.arc(cx, cy, r * i / 4, 0, Math.PI * 2);
             ctx.strokeStyle = colors.grid;
-            ctx.lineWidth = 1;
+            ctx.lineWidth = 1.5;
             ctx.stroke();
         }
 
-        // Линии направлений
         for (let angle = 0; angle < 360; angle += 30) {
             const rad = (angle - 90) * Math.PI / 180;
             const isMajor = angle % 90 === 0;
@@ -209,14 +214,14 @@ class WindDashboard {
             ctx.moveTo(cx + r * 0.85 * Math.cos(rad), cy + r * 0.85 * Math.sin(rad));
             ctx.lineTo(cx + r * Math.cos(rad), cy + r * Math.sin(rad));
             ctx.strokeStyle = isMajor ? colors.tickMajor : colors.tick;
-            ctx.lineWidth = isMajor ? 2 : 1;
+            ctx.lineWidth = isMajor ? 3 : 1.5;
             ctx.stroke();
 
             const labelR = r * 0.72;
             const lx = cx + labelR * Math.cos(rad);
             const ly = cy + labelR * Math.sin(rad);
             ctx.fillStyle = isMajor ? colors.tickMajor : colors.tick;
-            ctx.font = isMajor ? 'bold 13px sans-serif' : '11px sans-serif';
+            ctx.font = isMajor ? `bold ${Math.max(16, r * 0.12)}px sans-serif` : `${Math.max(12, r * 0.09)}px sans-serif`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText(angle.toString(), lx, ly);
@@ -227,9 +232,20 @@ class WindDashboard {
         this.drawWindArrow(cx, cy, r * 0.7);
 
         ctx.beginPath();
-        ctx.arc(cx, cy, 3, 0, Math.PI * 2);
-        ctx.fillStyle = colors.centerDot || '#64748b';
+        ctx.arc(cx, cy, 6, 0, Math.PI * 2);
+        ctx.fillStyle = colors.centerDot;
         ctx.fill();
+        ctx.beginPath();
+        ctx.arc(cx, cy, 3, 0, Math.PI * 2);
+        ctx.fillStyle = colors.value;
+        ctx.fill();
+        
+        // Показываем TWS (скорость ветра) в центре компаса
+        ctx.fillStyle = colors.value;
+        ctx.font = `bold ${Math.max(18, r * 0.12)}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(this.tws.toFixed(1) + ' kts', cx, cy - r * 0.45);
     }
 
     drawWindSectors(cx, cy, r) {
@@ -247,46 +263,45 @@ class WindDashboard {
 
         zones.forEach(zone => {
             ctx.beginPath();
-            ctx.arc(cx, cy, r + 6, 
+            ctx.arc(cx, cy, r + 8, 
                 (zone.start - 90) * Math.PI / 180, 
                 (zone.end - 90) * Math.PI / 180);
             ctx.strokeStyle = zone.color;
-            ctx.lineWidth = 4;
+            ctx.lineWidth = 6;
             ctx.stroke();
         });
 
         ctx.beginPath();
-        ctx.arc(cx, cy, r + 6, 
+        ctx.arc(cx, cy, r + 8, 
             (330 - 90) * Math.PI / 180, 
             (390 - 90) * Math.PI / 180);
         ctx.strokeStyle = colors.deadZone;
-        ctx.lineWidth = 4;
+        ctx.lineWidth = 6;
         ctx.stroke();
     }
 
     drawBoat(cx, cy, size) {
         const ctx = this.ctx;
         const colors = this.getColors();
-        const isLight = document.body.classList.contains('light');
 
         ctx.beginPath();
         ctx.moveTo(cx, cy - size);
-        ctx.lineTo(cx + size * 0.35, cy + size * 0.45);
-        ctx.lineTo(cx, cy + size * 0.25);
-        ctx.lineTo(cx - size * 0.35, cy + size * 0.45);
+        ctx.lineTo(cx + size * 0.4, cy + size * 0.5);
+        ctx.lineTo(cx, cy + size * 0.3);
+        ctx.lineTo(cx - size * 0.4, cy + size * 0.5);
         ctx.closePath();
 
         ctx.fillStyle = colors.boat;
         ctx.fill();
         ctx.strokeStyle = colors.boatOutline;
-        ctx.lineWidth = 1.5;
+        ctx.lineWidth = 2.5;
         ctx.stroke();
 
         ctx.beginPath();
         ctx.moveTo(cx, cy - size);
-        ctx.lineTo(cx, cy + size * 0.7);
-        ctx.strokeStyle = colors.tick;
-        ctx.lineWidth = 1;
+        ctx.lineTo(cx, cy + size * 0.75);
+        ctx.strokeStyle = colors.tickMajor;
+        ctx.lineWidth = 2;
         ctx.stroke();
     }
 
@@ -298,7 +313,7 @@ class WindDashboard {
         const startX = cx + length * Math.cos(startAngleRad);
         const startY = cy + length * Math.sin(startAngleRad);
 
-        const gap = 35;
+        const gap = 50;
         const endX = cx + gap * Math.cos(startAngleRad);
         const endY = cy + gap * Math.sin(startAngleRad);
 
@@ -308,10 +323,10 @@ class WindDashboard {
         ctx.moveTo(startX, startY);
         ctx.lineTo(endX, endY);
         ctx.strokeStyle = arrowColor;
-        ctx.lineWidth = 3;
+        ctx.lineWidth = 5;
         ctx.stroke();
 
-        const headLen = 12;
+        const headLen = 16;
         const angle = Math.atan2(endY - startY, endX - startX);
 
         ctx.beginPath();
@@ -327,12 +342,10 @@ class WindDashboard {
         ctx.closePath();
         ctx.fillStyle = arrowColor;
         ctx.fill();
-
-        const isLight = document.body.classList.contains('light');
-        ctx.fillStyle = isLight ? '#4f46e5' : '#a5b4fc';
-        ctx.font = 'bold 14px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText(this.tws.toFixed(1) + ' kts', cx, cy - r * 0.45);
+        
+        ctx.strokeStyle = arrowColor;
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
     }
 
     animate() {
@@ -343,7 +356,6 @@ class WindDashboard {
 
 let dashboard;
 
-// Запуск после загрузки DOM
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
         dashboard = new WindDashboard();
