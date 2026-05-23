@@ -1,3 +1,66 @@
+// Глобальная переменная для хранения ссылки на слой схемы
+let currentSchemeLayer = null;
+let map = null;
+
+// Функция обновления темы карты
+async function updateMapTheme(theme) {
+    if (!map) return;
+    
+    try {
+        const { YMapDefaultSchemeLayer } = ymaps3;
+        
+        // Удаляем старый слой схемы, если он есть
+        if (currentSchemeLayer) {
+            map.removeChild(currentSchemeLayer);
+        }
+        
+        // Создаем новый слой с нужной темой
+        currentSchemeLayer = new YMapDefaultSchemeLayer({ theme: theme });
+        map.addChild(currentSchemeLayer);
+        console.log(`Map theme updated to: ${theme}`);
+    } catch (error) {
+        console.error('Error updating map theme:', error);
+    }
+}
+
+// Theme management
+function initTheme() {
+    const savedTheme = localStorage.getItem('theme');
+    const btn = document.getElementById('themeBtn');
+    
+    if (savedTheme === 'light') {
+        document.body.classList.add('light');
+        if (btn) btn.textContent = '☀️';
+        // Обновляем тему карты на светлую, если карта уже создана
+        if (map) updateMapTheme('light');
+    } else {
+        document.body.classList.remove('light');
+        if (btn) btn.textContent = '🌙';
+        if (!savedTheme) {
+            localStorage.setItem('theme', 'dark');
+        }
+        // Обновляем тему карты на темную, если карта уже создана
+        if (map) updateMapTheme('dark');
+    }
+}
+
+function toggleTheme() {
+    const body = document.body;
+    const btn = document.getElementById('themeBtn');
+    
+    if (body.classList.contains('light')) {
+        body.classList.remove('light');
+        btn.textContent = '🌙';
+        localStorage.setItem('theme', 'dark');
+        updateMapTheme('dark');
+    } else {
+        body.classList.add('light');
+        btn.textContent = '☀️';
+        localStorage.setItem('theme', 'light');
+        updateMapTheme('light');
+    }
+}
+
 const VLADIDOSTOK = [131.91523178522812, 43.123237734648214];
 
 const WIND_BBOX = {
@@ -13,7 +76,6 @@ let boatMarker = null;
 let radarMode = false;
 let currentBoatPosition = null;
 let currentBoatCourse = 0;
-let map = null;
 let points = [];
 let waypointsList = [];
 let currentTargetIndex = 0;
@@ -340,7 +402,7 @@ function drawRadarGrid() {
         circle.className = 'radar-grid-circle';
         circle.style.width = `${radius * 2}%`;
         circle.style.height = `${radius * 2}%`;
-        circle.style.border = '1px solid #ddd';
+        circle.style.border = '1px solid var(--radar-grid)';
         radarGrid.appendChild(circle);
     });
     const lineV = document.createElement('div');
@@ -486,6 +548,15 @@ function addPoint(coordinates) {
 }
 
 async function main() {
+    // Инициализация темы ДО создания карты
+    initTheme();
+    
+    // Добавляем обработчик для кнопки темы
+    const themeBtn = document.getElementById('themeBtn');
+    if (themeBtn) {
+        themeBtn.addEventListener('click', toggleTheme);
+    }
+    
     await ymaps3.ready;
 
     const {
@@ -505,17 +576,23 @@ async function main() {
     const {YMapDefaultMarker} = await ymaps3.import('@yandex/ymaps3-default-ui-theme');
     YMapDefaultMarkerClass = YMapDefaultMarker;
 
+    // Получаем текущую тему для карты
+    const currentTheme = document.body.classList.contains('light') ? 'light' : 'dark';
+    
     map = new YMap(
         document.getElementById('map'),
         {
             location: {
                 center: VLADIDOSTOK,
                 zoom: 10
-            }
+            },
+            theme: currentTheme
         }
     );
 
-    map.addChild(new YMapDefaultSchemeLayer());
+    // Создаем и сохраняем слой схемы для возможности обновления
+    currentSchemeLayer = new YMapDefaultSchemeLayer({ theme: currentTheme });
+    map.addChild(currentSchemeLayer);
     map.addChild(new YMapDefaultFeaturesLayer());
 
     const clickHandler = async (object, data) => {

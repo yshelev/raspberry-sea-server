@@ -1,5 +1,5 @@
 from fastapi import FastAPI, WebSocket
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 import redis.asyncio as redis
@@ -145,7 +145,7 @@ async def polar_websocket_endpoint(ws: WebSocket):
 
 @app.get("/")
 async def root():
-    return {"message": "GPS Server is running", "clients": len(clients)}
+    return RedirectResponse(url="/map")
 
 @app.get("/ws", response_class=HTMLResponse)
 async def serve_map():

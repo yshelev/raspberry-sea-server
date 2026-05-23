@@ -1,13 +1,81 @@
+/* === CSS Variables for theming === */
+:root {
+    /* Dark theme (default) */
+    --radar-bg: #1a1a2e;
+    --radar-border: #4ade80;
+    --radar-grid: #2a2a4e;
+    --radar-point: #ffaa00;
+    --panel-bg: rgba(0, 0, 0, 0.85);
+    --panel-blur: blur(15px);
+    --border-color: rgba(255, 255, 255, 0.2);
+    --text-secondary: #aaa;
+    --value-color: #4ade80;
+    --slider-bg: #333;
+    --button-bg: rgba(20, 20, 40, 0.9);
+    --button-border: rgba(74, 222, 128, 0.5);
+    --button-text: #4ade80;
+    --button-hover-bg: #4ade80;
+    --button-hover-text: #1a1a2e;
+}
+
+body.light {
+    /* Light theme */
+    --radar-bg: #f0f2f5;
+    --radar-border: #059669;
+    --radar-grid: #e5e7eb;
+    --radar-point: #f59e0b;
+    --panel-bg: rgba(255, 255, 255, 0.95);
+    --panel-blur: blur(15px);
+    --border-color: rgba(0, 0, 0, 0.1);
+    --text-secondary: #6b7280;
+    --value-color: #059669;
+    --slider-bg: #e5e7eb;
+    --button-bg: rgba(255, 255, 255, 0.9);
+    --button-border: rgba(5, 150, 105, 0.5);
+    --button-text: #059669;
+    --button-hover-bg: #059669;
+    --button-hover-text: white;
+}
+
 body {
     margin: 0;
     padding: 0;
     font-family: monospace;
     overflow: hidden;
+    transition: background 0.3s;
 }
 
 #map {
     width: 100%;
     height: 100vh;
+}
+
+/* Theme toggle button - left top corner */
+.theme-toggle {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    z-index: 1100;
+}
+
+.theme-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--panel-bg);
+    backdrop-filter: var(--panel-blur);
+    border: 1px solid var(--border-color);
+    color: var(--button-text);
+    font-size: 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s;
+}
+
+.theme-btn:hover {
+    transform: scale(1.05);
 }
 
 /* Радар контейнер */
@@ -17,9 +85,10 @@ body {
     left: 0;
     width: 100%;
     height: 100vh;
-    background: white;
+    background: var(--radar-bg);
     z-index: 500;
     display: none;
+    transition: background 0.3s;
 }
 
 .radar-canvas {
@@ -30,10 +99,11 @@ body {
     width: 60vmin;
     height: 60vmin;
     border-radius: 50%;
-    border: 2px solid #333;
-    background: #f5f5f5;
+    border: 2px solid var(--radar-border);
+    background: var(--radar-bg);
     overflow: visible;
     box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+    transition: background 0.3s, border-color 0.3s;
 }
 
 .radar-rotation-layer {
@@ -53,7 +123,7 @@ body {
     left: 50%;
     width: 8px;
     height: 8px;
-    background: #333;
+    background: var(--radar-border);
     border-radius: 50%;
     transform: translate(-50%, -50%);
     z-index: 10;
@@ -71,7 +141,7 @@ body {
     position: absolute;
     width: 14px;
     height: 14px;
-    background: #ffaa00;
+    background: var(--radar-point);
     border-radius: 50%;
     transform: translate(-50%, -50%);
     transition: all 0.3s;
@@ -94,7 +164,7 @@ body {
     left: 50%;
     transform: translate(-50%, -50%);
     border-radius: 50%;
-    border: 1px solid #ccc;
+    border: 1px solid var(--radar-grid);
 }
 
 .radar-grid-line {
@@ -103,7 +173,7 @@ body {
     left: 50%;
     width: 1px;
     height: 100%;
-    background: #ccc;
+    background: var(--radar-grid);
     transform: translateX(-50%);
 }
 
@@ -113,7 +183,7 @@ body {
     left: 0;
     width: 100%;
     height: 1px;
-    background: #ccc;
+    background: var(--radar-grid);
     transform: translateY(-50%);
 }
 
@@ -137,11 +207,12 @@ body {
     left: 0;
     right: 0;
     z-index: 1000;
-    background: rgba(0, 0, 0, 0.85);
-    backdrop-filter: blur(15px);
-    border-top: 1px solid rgba(255, 255, 255, 0.2);
+    background: var(--panel-bg);
+    backdrop-filter: var(--panel-blur);
+    border-top: 1px solid var(--border-color);
     padding: 12px 20px 15px 20px;
     font-family: monospace;
+    transition: background 0.3s;
 }
 
 .distance-control {
@@ -153,11 +224,11 @@ body {
     justify-content: space-between;
     margin-bottom: 8px;
     font-size: 13px;
-    color: #aaa;
+    color: var(--text-secondary);
 }
 
 .distance-value {
-    color: #4ade80;
+    color: var(--value-color);
     font-weight: bold;
     font-size: 13px;
 }
@@ -166,7 +237,7 @@ input[type="range"] {
     width: 100%;
     height: 4px;
     -webkit-appearance: none;
-    background: #333;
+    background: var(--slider-bg);
     border-radius: 2px;
     outline: none;
 }
@@ -180,13 +251,13 @@ input[type="range"]::-webkit-slider-thumb {
     width: 16px;
     height: 16px;
     border-radius: 50%;
-    background: #4ade80;
+    background: var(--value-color);
     cursor: pointer;
     border: none;
 }
 
 input[type="range"]::-webkit-slider-thumb:hover {
-    background: #69db7c;
+    background: var(--button-hover-bg);
     transform: scale(1.1);
 }
 
@@ -199,10 +270,10 @@ input[type="range"]::-webkit-slider-thumb:hover {
 .control-button {
     flex: 1;
     padding: 8px 16px;
-    background: rgba(20, 20, 40, 0.9);
-    border: 1px solid rgba(74, 222, 128, 0.5);
+    background: var(--button-bg);
+    border: 1px solid var(--button-border);
     border-radius: 8px;
-    color: #4ade80;
+    color: var(--button-text);
     cursor: pointer;
     font-family: monospace;
     font-size: 14px;
@@ -212,8 +283,8 @@ input[type="range"]::-webkit-slider-thumb:hover {
 }
 
 .control-button:hover {
-    background: #4ade80;
-    color: #1a1a2e;
-    border-color: #4ade80;
+    background: var(--button-hover-bg);
+    color: var(--button-hover-text);
+    border-color: var(--button-hover-bg);
     transform: translateY(-1px);
 }
