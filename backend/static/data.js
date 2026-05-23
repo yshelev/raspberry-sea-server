@@ -1,3 +1,41 @@
+// Theme management - делаем функции глобальными
+window.initTheme = function() {
+    const savedTheme = localStorage.getItem('theme');
+    const btn = document.getElementById('themeBtn');
+    
+    console.log('initTheme called, savedTheme:', savedTheme);
+    
+    if (savedTheme === 'light') {
+        document.body.classList.add('light');
+        if (btn) btn.textContent = '☀️';
+    } else {
+        document.body.classList.remove('light');
+        if (btn) btn.textContent = '🌙';
+        if (!savedTheme) {
+            localStorage.setItem('theme', 'dark');
+        }
+    }
+}
+
+window.toggleTheme = function() {
+    const body = document.body;
+    const btn = document.getElementById('themeBtn');
+    
+    console.log('toggleTheme called, current class:', body.classList.contains('light'));
+    
+    if (body.classList.contains('light')) {
+        body.classList.remove('light');
+        if (btn) btn.textContent = '🌙';
+        localStorage.setItem('theme', 'dark');
+        console.log('Theme changed to dark');
+    } else {
+        body.classList.add('light');
+        if (btn) btn.textContent = '☀️';
+        localStorage.setItem('theme', 'light');
+        console.log('Theme changed to light');
+    }
+}
+
 // Состояние
 let ws = null;
 let currentBoatPosition = null;
@@ -41,11 +79,9 @@ function updateConnectionStatus(connected) {
         if (connected) {
             connectionStatusSpan.textContent = '✓';
             connectionStatusSpan.dataset.connected = 'true';
-            connectionStatusSpan.style.color = '#4ade80';
         } else {
             connectionStatusSpan.textContent = '✗';
             connectionStatusSpan.dataset.connected = 'false';
-            connectionStatusSpan.style.color = '#ff4444';
         }
     }
 }
@@ -209,6 +245,21 @@ function connectWebSocket() {
 }
 
 function init() {
+    console.log('Initializing data page...');
+    
+    // Инициализация темы
+    window.initTheme();
+    
+    // Добавляем обработчик для кнопки темы - используем onclick напрямую на кнопке
+    const themeBtn = document.getElementById('themeBtn');
+    if (themeBtn) {
+        console.log('Theme button found, attaching handler');
+        // Убираем предыдущие обработчики и добавляем новый
+        themeBtn.onclick = window.toggleTheme;
+    } else {
+        console.error('Theme button not found!');
+    }
+    
     // Кнопки навигации
     const gotoMapBtn = document.getElementById('gotoMapBtn');
     const gotoPolarBtn = document.getElementById('gotoPolarBtn');
@@ -227,9 +278,14 @@ function init() {
     }
     
     loadRouteFromStorage();
-    
     connectWebSocket();
     updateConnectionStatus(false);
 }
 
-init();
+// Запускаем инициализацию после загрузки DOM
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+} else {
+    // DOM уже загружен
+    init();
+}

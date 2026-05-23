@@ -1,5 +1,6 @@
 /* === CSS Variables for theming === */
 :root {
+    /* Dark theme (default) */
     --bg: #0a0a0f;
     --fg: #c0c0c8;
     --app-bg: #0a0a0f;
@@ -25,9 +26,16 @@
     --center-dot: #64748b;
     --theme-btn-bg: #1e293b;
     --theme-btn-fg: #fbbf24;
+    --close-hauled: #b45309;
+    --beam-reach: #0d9488;
+    --broad-reach: #059669;
+    --running: #6366f1;
+    --dead-zone: #dc2626;
+    --boat: #818cf8;
+    --boat-outline: #c7d2fe;
 }
 
-/* === Light theme === */
+/* Light theme */
 body.light {
     --bg: #f5f5f7;
     --fg: #374151;
@@ -54,6 +62,13 @@ body.light {
     --center-dot: #d1d5db;
     --theme-btn-bg: #e5e7eb;
     --theme-btn-fg: #f59e0b;
+    --close-hauled: #ea580c;
+    --beam-reach: #0d9488;
+    --broad-reach: #059669;
+    --running: #4f46e5;
+    --dead-zone: #dc2626;
+    --boat: #6366f1;
+    --boat-outline: #c7d2fe;
 }
 
 * {
@@ -83,11 +98,12 @@ body {
     justify-content: center;
 }
 
-/* === Theme Toggle === */
+/* Theme toggle button - left top corner */
 .theme-toggle {
-    display: flex;
-    justify-content: flex-end;
-    margin-bottom: 20px;
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    z-index: 1100;
 }
 
 .theme-btn {
@@ -109,7 +125,7 @@ body {
     transform: scale(1.1);
 }
 
-/* === Compass === */
+/* Compass */
 .compass-container {
     display: flex;
     flex-direction: column;
@@ -131,7 +147,7 @@ body {
     letter-spacing: 1px;
 }
 
-/* === Wind Panel === */
+/* Wind Panel */
 .wind-panel {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -170,7 +186,7 @@ body {
     margin-top: 4px;
 }
 
-/* === Status Bar === */
+/* Status Bar */
 .status-bar {
     display: flex;
     align-items: center;
@@ -193,7 +209,7 @@ body {
     background: #22c55e;
 }
 
-/* === Buttons === */
+/* Buttons */
 .buttons {
     margin-top: 15px;
     width: 100%;

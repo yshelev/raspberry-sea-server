@@ -1,9 +1,73 @@
+/* === CSS Variables for theming === */
+:root {
+    /* Dark theme (default) */
+    --bg-primary: #1a1a2e;
+    --bg-secondary: rgba(0, 0, 0, 0.8);
+    --text-primary: #eee;
+    --text-secondary: #aaa;
+    --border-color: rgba(255, 255, 255, 0.2);
+    --border-bottom: rgba(255, 255, 255, 0.3);
+    --value-color: #4ade80;
+    --button-bg: #4ade80;
+    --button-hover: #69db7c;
+    --button-text: #1a1a2e;
+    --panel-blur: blur(10px);
+    --status-connected: #4ade80;
+    --status-disconnected: #ff4444;
+}
+
+body.light {
+    /* Light theme */
+    --bg-primary: #f0f2f5;
+    --bg-secondary: rgba(255, 255, 255, 0.95);
+    --text-primary: #1a1a2e;
+    --text-secondary: #666;
+    --border-color: rgba(0, 0, 0, 0.15);
+    --border-bottom: rgba(0, 0, 0, 0.2);
+    --value-color: #059669;
+    --button-bg: #059669;
+    --button-hover: #10b981;
+    --button-text: white;
+    --panel-blur: blur(10px);
+    --status-connected: #059669;
+    --status-disconnected: #dc2626;
+}
+
 body {
     margin: 0;
     padding: 20px;
     font-family: monospace;
-    background: #1a1a2e;
-    color: #eee;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    transition: background 0.3s, color 0.3s;
+}
+
+/* Theme toggle button */
+.theme-toggle {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    z-index: 1000;
+}
+
+.theme-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--bg-secondary);
+    backdrop-filter: var(--panel-blur);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    font-size: 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s;
+}
+
+.theme-btn:hover {
+    transform: scale(1.05);
 }
 
 .container {
@@ -12,19 +76,19 @@ body {
 }
 
 .data-panel {
-    background: rgba(0, 0, 0, 0.8);
-    backdrop-filter: blur(10px);
+    background: var(--bg-secondary);
+    backdrop-filter: var(--panel-blur);
     border-radius: 10px;
     padding: 15px;
     margin-bottom: 20px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    border: 1px solid var(--border-color);
     font-family: monospace;
 }
 
 .data-panel h3 {
     margin: 0 0 10px 0;
     font-size: 16px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+    border-bottom: 1px solid var(--border-bottom);
     padding-bottom: 5px;
     display: flex;
     justify-content: space-between;
@@ -35,10 +99,10 @@ body {
     font-size: 18px;
 }
 .status-indicator[data-connected="true"] {
-    color: #4ade80;
+    color: var(--status-connected);
 }
 .status-indicator[data-connected="false"] {
-    color: #ff4444;
+    color: var(--status-disconnected);
 }
 
 .data-row {
@@ -46,31 +110,31 @@ body {
 }
 
 .label {
-    color: #aaa;
+    color: var(--text-secondary);
     display: inline-block;
     width: 100px;
     font-size: 14px;
 }
 
 .value {
-    color: #4ade80;
+    color: var(--value-color);
     font-weight: bold;
     font-size: 14px;
 }
 
 .next-point-panel {
-    background: rgba(0, 0, 0, 0.8);
-    backdrop-filter: blur(10px);
+    background: var(--bg-secondary);
+    backdrop-filter: var(--panel-blur);
     border-radius: 10px;
     padding: 15px;
     margin-bottom: 20px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    border: 1px solid var(--border-color);
 }
 
 .next-point-panel h3 {
     margin: 0 0 10px 0;
     font-size: 16px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+    border-bottom: 1px solid var(--border-bottom);
     padding-bottom: 5px;
 }
 
@@ -81,20 +145,20 @@ body {
 
 .map-button {
     padding: 12px 24px;
-    background: #4ade80;
+    background: var(--button-bg);
     border: none;
     border-radius: 10px;
-    color: #1a1a2e;
+    color: var(--button-text);
     font-weight: bold;
     font-size: 16px;
     cursor: pointer;
     font-family: monospace;
     transition: all 0.3s;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 .map-button:hover {
-    background: #69db7c;
+    background: var(--button-hover);
     transform: scale(1.02);
 }
 
@@ -110,28 +174,41 @@ body {
     flex: 1;
     min-width: 120px;
     padding: 12px 20px;
-    background: #4ade80;
+    background: var(--button-bg);
     border: none;
     border-radius: 10px;
-    color: #1a1a2e;
+    color: var(--button-text);
     font-weight: bold;
     font-size: 14px;
     cursor: pointer;
     font-family: monospace;
     transition: all 0.3s;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
     text-align: center;
 }
 
 .nav-buttons .map-button:hover {
-    background: #69db7c;
+    background: var(--button-hover);
     transform: scale(1.02);
 }
 
 @media (max-width: 600px) {
+    body {
+        padding: 10px;
+    }
+    
     .nav-buttons .map-button {
         min-width: 100px;
         padding: 10px 16px;
+        font-size: 12px;
+    }
+    
+    .label {
+        width: 80px;
+        font-size: 12px;
+    }
+    
+    .value {
         font-size: 12px;
     }
 }

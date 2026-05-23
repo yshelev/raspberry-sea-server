@@ -1,3 +1,39 @@
+// Theme management
+window.initTheme = function() {
+    const savedTheme = localStorage.getItem('theme');
+    const btn = document.getElementById('themeBtn');
+    
+    console.log('Polar initTheme called, savedTheme:', savedTheme);
+    
+    if (savedTheme === 'light') {
+        document.body.classList.add('light');
+        if (btn) btn.textContent = '☀️';
+    } else {
+        document.body.classList.remove('light');
+        if (btn) btn.textContent = '🌙';
+        if (!savedTheme) {
+            localStorage.setItem('theme', 'dark');
+        }
+    }
+}
+
+window.toggleTheme = function() {
+    const body = document.body;
+    const btn = document.getElementById('themeBtn');
+    
+    console.log('Polar toggleTheme called');
+    
+    if (body.classList.contains('light')) {
+        body.classList.remove('light');
+        if (btn) btn.textContent = '🌙';
+        localStorage.setItem('theme', 'dark');
+    } else {
+        body.classList.add('light');
+        if (btn) btn.textContent = '☀️';
+        localStorage.setItem('theme', 'light');
+    }
+}
+
 // Состояние
 let ws = null;
 let reconnectAttempts = 0;
@@ -15,11 +51,9 @@ function updateConnectionStatus(connected) {
         if (connected) {
             connectionStatusSpan.textContent = '✓';
             connectionStatusSpan.dataset.connected = 'true';
-            connectionStatusSpan.style.color = '#4ade80';
         } else {
             connectionStatusSpan.textContent = '✗';
             connectionStatusSpan.dataset.connected = 'false';
-            connectionStatusSpan.style.color = '#ff4444';
         }
     }
 }
@@ -43,7 +77,7 @@ function displayImage(base64Data) {
     // Обновляем время
     const now = new Date();
     updateInfo.textContent = `Последнее обновление: ${now.toLocaleTimeString()}`;
-    updateInfo.style.color = '#4ade80';
+    updateInfo.style.color = 'var(--update-text)';
 }
 
 function showLoading() {
@@ -57,13 +91,13 @@ function showLoading() {
         `;
     }
     updateInfo.textContent = 'Подключение...';
-    updateInfo.style.color = '#aaa';
+    updateInfo.style.color = 'var(--text-secondary)';
 }
 
 function updateStatus(message, isConnected) {
     if (updateInfo) {
         updateInfo.textContent = message;
-        updateInfo.style.color = isConnected ? '#4ade80' : '#ff4444';
+        updateInfo.style.color = isConnected ? 'var(--update-text)' : 'var(--status-disconnected)';
     }
 }
 
@@ -84,7 +118,6 @@ function connect() {
     };
     
     ws.onmessage = (event) => {
-        
         try {
             const data = JSON.parse(event.data);
             
@@ -145,8 +178,20 @@ function goToData() {
 
 // Инициализация
 function init() {
-    const gotoDataBtn = document.getElementById('gotoDataBtn');
+    console.log('Initializing polar page...');
     
+    // Инициализация темы
+    window.initTheme();
+    
+    // Обработчик кнопки темы
+    const themeBtn = document.getElementById('themeBtn');
+    if (themeBtn) {
+        console.log('Theme button found, attaching handler');
+        themeBtn.onclick = window.toggleTheme;
+    }
+    
+    // Кнопка перехода на страницу данных
+    const gotoDataBtn = document.getElementById('gotoDataBtn');
     if (gotoDataBtn) {
         gotoDataBtn.addEventListener('click', goToData);
     }
@@ -154,6 +199,7 @@ function init() {
     connect();
 }
 
+// Обработка закрытия страницы
 window.addEventListener('beforeunload', () => {
     if (ws) {
         ws.close();
@@ -163,4 +209,9 @@ window.addEventListener('beforeunload', () => {
     }
 });
 
-init();
+// Запуск после загрузки DOM
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+} else {
+    init();
+}

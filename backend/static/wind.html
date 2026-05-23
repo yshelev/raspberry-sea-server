@@ -8,11 +8,11 @@
     <link rel="stylesheet" href="static/wind.css">
 </head>
 <body>
-    <div class="app">
-        <div class="theme-toggle">
-            <button class="theme-btn" id="themeBtn" onclick="toggleTheme()">🌙</button>
-        </div>
+    <div class="theme-toggle">
+        <button class="theme-btn" id="themeBtn">🌙</button>
+    </div>
 
+    <div class="app">
         <div class="compass-container">
             <canvas id="windCompass" width="300" height="300"></canvas>
             <div class="compass-label">Boat heading up</div>
@@ -27,10 +27,15 @@
                 <div class="wind-label">TWD</div>
                 <div class="wind-value" id="twd">—°</div>
             </div>
+            <div class="wind-item">
+                <div class="wind-label">TWS</div>
+                <div class="wind-value" id="tws">—</div>
+                <div class="wind-unit">kts</div>
+            </div>
         </div>
 
         <div class="buttons">
-            <button class="btn" onclick="location.href='/data'">данные</button>
+            <button class="btn" id="dataPageBtn">данные</button>
         </div>
     </div>
 
