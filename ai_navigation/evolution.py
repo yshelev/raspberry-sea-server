@@ -2,11 +2,12 @@ import json
 import math
 import random
 import time
+from datetime import datetime
 from pathlib import Path
 
 import numpy as np
 
-from simulator import SailboatSimulator
+from simulator import SailboatSimulator, WindModel
 from polar_diagram import racing_polar
 
 CONFIG = {
@@ -22,8 +23,21 @@ CONFIG = {
         (43.110079, 131.862413),
     ],
 
-    "wind_tws": 20.0,
+    "wind_tws": 16.0,
     "wind_twd": 90.0,
+
+    "wind_twd_sigma": 4.0,
+    "wind_tws_sigma": 0.8,
+    "wind_twd_alpha": 0.03,
+    "wind_tws_alpha": 0.05,
+
+    "eval_scenarios": [
+        (   0,   0),
+        # ( +45,  +4),
+        # ( -45,  -4),
+        # (+135,   0),
+        # (   0,  -8),
+    ],
 
     "generations":       50,
     "population_size":   80,
@@ -34,7 +48,7 @@ CONFIG = {
     "crossover_prob":    0.6,
     "max_steps":         15_000,
 
-    "input_size":  6,
+    "input_size":  7,
     "hidden_size": 8,
     "output_size": 1,
 
@@ -85,6 +99,7 @@ class NeuralNetwork:
         out = np.tanh(W2 @ h + b2)
         return float(out[0])
 
+
     def mutate(self, rate: float, strength: float) -> "NeuralNetwork":
         child = self.copy()
         mask = np.random.rand(self._n) < rate
@@ -121,15 +136,25 @@ class NeuralNetwork:
         return net
 
 
-def evaluate(net: NeuralNetwork, cfg: dict) -> tuple[float, int, int]:
-    sim = SailboatSimulator(polar_function=racing_polar)
+def _run_episode(net: NeuralNetwork, cfg: dict,
+                 wind_twd: float, wind_tws: float) -> tuple[float, int, int]:
+    wind_model = WindModel(
+        base_twd=wind_twd,
+        base_tws=wind_tws,
+        twd_sigma=cfg.get("wind_twd_sigma", 0.0),
+        tws_sigma=cfg.get("wind_tws_sigma", 0.0),
+        twd_alpha=cfg.get("wind_twd_alpha", 0.03),
+        tws_alpha=cfg.get("wind_tws_alpha", 0.05),
+    )
+
+    sim = SailboatSimulator(polar_function=racing_polar, wind_model=wind_model)
     sim.reset(
         start_lat=cfg["start_lat"],
         start_lon=cfg["start_lon"],
         start_heading=random.uniform(0, 360),
         checkpoints=cfg["checkpoints"],
-        wind_tws=cfg["wind_tws"],
-        wind_twd=cfg["wind_twd"],
+        wind_tws=wind_tws,
+        wind_twd=wind_twd,
         max_steps=cfg["max_steps"],
     )
 
@@ -142,12 +167,30 @@ def evaluate(net: NeuralNetwork, cfg: dict) -> tuple[float, int, int]:
 
     return total_reward, sim._checkpoints_passed, sim.time_sec
 
+def evaluate(net: NeuralNetwork, cfg: dict) -> tuple[float, int, int]:
+    base_twd = cfg["wind_twd"]
+    base_tws = cfg["wind_tws"]
+    scenarios = cfg.get("eval_scenarios", [(0, 0)])
+
+    rewards = list()
+    base_cp = base_time = None
+
+    for i, (delta_twd, delta_tws) in enumerate(scenarios):
+        twd = (base_twd + delta_twd) % 360
+        tws = float(np.clip(base_tws + delta_tws, 4.0, 30.0))
+
+        reward, cp, t = _run_episode(net, cfg, twd, tws)
+        rewards.append(reward)
+
+        if i == 0:
+            base_cp, base_time = cp, t
+
+    return float(np.mean(rewards)), base_cp, base_time
 
 def tournament_select(population: list, fitnesses: list, k: int) -> NeuralNetwork:
     idxs = random.sample(range(len(population)), min(k, len(population)))
     best = max(idxs, key=lambda i: fitnesses[i])
     return population[best]
-
 
 def evolve(cfg: dict = CONFIG) -> NeuralNetwork:
     save_dir = Path(cfg["save_dir"])
@@ -172,12 +215,14 @@ def evolve(cfg: dict = CONFIG) -> NeuralNetwork:
     history = list()
 
     print("=" * 70)
-    print("  SAILBOAT NEURO-EVOLUTION")
+    print("  SAILBOAT NEURO-EVOLUTION  (variable wind + multi-scenario)")
     print("=" * 70)
     print(f"  Population:  {pop_size}  |  Elite: {elite_n}  |  Generations: {generations}")
-    print(f"  Wind:        {cfg['wind_tws']} kn from {cfg['wind_twd']}°")
-    print(f"  Checkpoints: {n_cp}")
-    print(f"  Max steps:   {cfg['max_steps']}")
+    print(f"  Base wind:   {cfg['wind_tws']} kn from {cfg['wind_twd']}°")
+    print(f"  Wind noise:  σ_twd={cfg.get('wind_twd_sigma',0)}°  σ_tws={cfg.get('wind_tws_sigma',0)} kn")
+    n_sc = len(cfg.get("eval_scenarios", [(0,0)]))
+    print(f"  Scenarios:   {n_sc} per agent  (fitness = mean)")
+    print(f"  Checkpoints: {n_cp}  |  Max steps: {cfg['max_steps']}")
     print("=" * 70)
 
     train_start = time.time()
@@ -219,8 +264,8 @@ def evolve(cfg: dict = CONFIG) -> NeuralNetwork:
 
         if len(history) >= 30:
             recent = [h[1] for h in history[-30:]]
-            if max(recent) - min(recent) < 50 and best_cp >= n_cp:
-                print(f"\n🏁 Fitness stabilized. Stop.")
+            if max(recent) - min(recent) < 200 and best_cp >= n_cp:
+                print(f"\nFitness stabilized. Stop.")
                 break
 
         sorted_idx = np.argsort(fitnesses)[::-1]
@@ -258,16 +303,15 @@ def evolve(cfg: dict = CONFIG) -> NeuralNetwork:
 
     return best_ever
 
-
 def test_network(path: str = "best_network.json", cfg: dict = CONFIG, n_runs: int = 5):
     net = NeuralNetwork.load(path)
     n_cp = len(cfg["checkpoints"])
 
-    print(f"\Testing {path} ({n_runs} runs):")
+    print(f"\nТестирование {path} ({n_runs} запусков):")
     print("-" * 50)
 
     for i in range(n_runs):
-        fitness, cp, t = evaluate(net, cfg)
+        fitness, cp, t = _run_episode(net, cfg, cfg["wind_twd"], cfg["wind_tws"])
         status = "✅" if cp >= n_cp else f"cp={cp}/{n_cp}"
         print(f"  Run {i+1}: fitness={fitness:.1f}  time={t}s ({t/60:.1f}min)  {status}")
 
@@ -279,20 +323,21 @@ def cross_validate(path: str = "best_network.json", cfg: dict = CONFIG):
     print("\nCross validation by wind conditions:")
     print("-" * 50)
 
+    static_cfg = {**cfg, "wind_twd_sigma": 0.0, "wind_tws_sigma": 0.0}
+
     tests = [
         ("Train wind", cfg["wind_tws"], cfg["wind_twd"]),
         ("Weak wind",        8.0,  cfg["wind_twd"]),
         ("High wind",      22.0,  cfg["wind_twd"]),
-        ("Wind +45°",         cfg["wind_tws"], (cfg["wind_twd"] + 45) % 360),
-        ("Wind -45°",         cfg["wind_tws"], (cfg["wind_twd"] - 45) % 360),
+        ("TWD +45°",            cfg["wind_tws"],        (cfg["wind_twd"] + 45) % 360),
+        ("TWD -45°",            cfg["wind_tws"],        (cfg["wind_twd"] - 45) % 360),
+        ("TWD +135°",           cfg["wind_tws"],        (cfg["wind_twd"] + 135) % 360),
     ]
 
     for label, tws, twd in tests:
-        test_cfg = {**cfg, "wind_tws": tws, "wind_twd": twd}
-        fitness, cp, t = evaluate(net, test_cfg)
+        fitness, cp, t = _run_episode(net, static_cfg, twd, tws)
         status = "✅" if cp >= n_cp else f"cp={cp}/{n_cp}"
         print(f"  {label:25s}: fit={fitness:8.1f}  t={t:6.0f}s  {status}")
-
 
 def _save_history(history, save_dir: Path):
     import csv

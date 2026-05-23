@@ -8,10 +8,56 @@ MAX_TURN_RATE_DEG    = 15.0
 DEAD_ZONE_DEG        = 30
 
 
+class WindModel:
+
+    def __init__(self,
+                 base_twd: float,
+                 base_tws: float,
+                 twd_sigma: float = 3.0,
+                 tws_sigma: float = 0.5,
+                 twd_alpha: float = 0.03,
+                 tws_alpha: float = 0.05,
+                 tws_min: float = 4.0,
+                 tws_max: float = 30.0):
+        self.base_twd  = base_twd
+        self.base_tws  = base_tws
+        self.twd_sigma = twd_sigma
+        self.tws_sigma = tws_sigma
+        self.twd_alpha = twd_alpha
+        self.tws_alpha = tws_alpha
+        self.tws_min   = tws_min
+        self.tws_max   = tws_max
+
+        self.twd = base_twd
+        self.tws = base_tws
+
+    def reset(self):
+        self.twd = self.base_twd
+        self.tws = self.base_tws
+
+    def step(self) -> tuple[float, float]:
+        twd_diff = (self.base_twd - self.twd + 180) % 360 - 180
+        self.twd = (self.twd
+                    + self.twd_alpha * twd_diff
+                    + self.tws_sigma * np.random.randn()) % 360
+
+        self.tws = (self.tws
+                    + self.tws_alpha * (self.base_tws - self.tws)
+                    + self.tws_sigma * np.random.randn())
+        self.tws = float(np.clip(self.tws, self.tws_min, self.tws_max))
+
+        return self.twd, self.tws
+
+    @property
+    def state(self) -> tuple[float, float]:
+        return self.twd, self.tws
+
+
 class SailboatSimulator:
 
-    def __init__(self, polar_function):
-        self.polar = polar_function
+    def __init__(self, polar_function, wind_model: WindModel | None = None):
+        self.polar      = polar_function
+        self.wind_model = wind_model
 
         self.lat = self.lon = self.heading = None
         self.speed_knots = None
@@ -38,6 +84,13 @@ class SailboatSimulator:
         self.time_sec = 0
         self.done = False
         self.max_steps = max_steps
+
+        if self.wind_model is not None:
+            self.wind_model.base_twd = wind_twd
+            self.wind_model.base_tws = wind_tws
+            self.wind_model.reset()
+            self.wind_twd = self.wind_model.twd
+            self.wind_tws = self.wind_model.tws
 
         self._prev_distance_nm = self._dist_to_target()
         self._checkpoints_passed = 0
@@ -81,6 +134,9 @@ class SailboatSimulator:
     def step(self, action: float) -> tuple[np.ndarray, float, bool]:
         if self.done:
             return self.get_observations(), 0.0, True
+
+        if self.wind_model is not None:
+            self.wind_twd, self.wind_tws = self.wind_model.step()
 
         turn = float(action) * MAX_TURN_RATE_DEG
         self.heading = (self.heading + turn) % 360
@@ -137,7 +193,7 @@ class SailboatSimulator:
 
     def get_observations(self) -> np.ndarray:
         if self.current_target_idx >= len(self.checkpoints):
-            return np.zeros(6, dtype=np.float32)
+            return np.zeros(7, dtype=np.float32)
 
         tlat, tlon = self.checkpoints[self.current_target_idx]
 
@@ -154,6 +210,8 @@ class SailboatSimulator:
 
         speed_norm = min(self.speed_knots / 10.0, 1.0)
 
+        tws_norm = float(np.clip((self.wind_tws - 4.0) / 26.0, 0.0, 1.0))
+
         return np.array([
             math.sin(math.radians(rel)),
             math.cos(math.radians(rel)),
@@ -161,6 +219,7 @@ class SailboatSimulator:
             math.cos(math.radians(twa)),
             dist_norm,
             speed_norm,
+            tws_norm,
         ], dtype=np.float32)
 
     @property
@@ -205,7 +264,7 @@ if __name__ == "__main__":
                   f"  hdg={s['heading']:5.1f}°  spd={s['speed_knots']:.2f}kn"
                   f"  cp={s['checkpoints_passed']}  r={reward:+.2f}")
         if done:
-            print(f"\n{'✅ FINISHED' if sim.finished else '⛔ TIMEOUT'} "
+            print(f"\n{'FINISHED' if sim.finished else 'TIMEOUT'} "
                   f"in {sim.time_sec}s, checkpoints={sim._checkpoints_passed}")
             break
 
