@@ -287,10 +287,6 @@ class WindDashboard {
         ctx.textAlign = 'center';
         ctx.fillText(this.tws.toFixed(1) + ' kts', cx, cy - r * 0.45);
 
-        // Подпись TWA
-        ctx.fillStyle = isLight ? '#9ca3af' : '#6b7280';
-        ctx.font = '11px sans-serif';
-        ctx.fillText('TWA ' + Math.round(this.twa) + '°', cx, cy + r * 0.82);
     }
 
     animate() {

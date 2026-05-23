@@ -2,6 +2,7 @@
 let ws = null;
 let reconnectAttempts = 0;
 let reconnectTimeout = null;
+let currentImage = null; // Храним ссылку на текущий img элемент
 
 // DOM элементы
 const connectionStatusSpan = document.getElementById('connectionStatus');
@@ -24,38 +25,38 @@ function updateConnectionStatus(connected) {
 }
 
 function displayImage(base64Data) {
-    // Очищаем контейнер
-    imageContainer.innerHTML = '';
+    // Если изображения еще нет - создаем
+    if (!currentImage) {
+        currentImage = document.createElement('img');
+        currentImage.alt = 'Полярная диаграмма';
+        currentImage.style.maxWidth = '100%';
+        currentImage.style.height = 'auto';
+        currentImage.style.borderRadius = '8px';
+        currentImage.style.boxShadow = '0 5px 15px rgba(0, 0, 0, 0.3)';
+        imageContainer.innerHTML = '';
+        imageContainer.appendChild(currentImage);
+    }
     
-    // Создаем изображение
-    const img = document.createElement('img');
+    // Просто заменяем src
+    currentImage.src = `data:image/png;base64,${base64Data}`;
     
-    img.onload = () => {
-        imageContainer.appendChild(img);
-        // Обновляем время
-        const now = new Date();
-        updateInfo.textContent = `Last update: ${now.toLocaleTimeString()}`;
-        updateInfo.style.color = '#4ade80';
-    };
-    
-    img.onerror = () => {
-        imageContainer.innerHTML = '<div class="loading-placeholder"><p style="color: #ff4444;">❌ Failed to load image</p></div>';
-        updateInfo.textContent = 'Failed to load image';
-        updateInfo.style.color = '#ff4444';
-    };
-    
-    img.src = `data:image/png;base64,${base64Data}`;
-    img.alt = 'Polar Diagram';
+    // Обновляем время
+    const now = new Date();
+    updateInfo.textContent = `Последнее обновление: ${now.toLocaleTimeString()}`;
+    updateInfo.style.color = '#4ade80';
 }
 
 function showLoading() {
-    imageContainer.innerHTML = `
-        <div class="loading-placeholder">
-            <div class="loading-spinner"></div>
-            <p>Waiting for polar diagram...</p>
-        </div>
-    `;
-    updateInfo.textContent = 'Connecting...';
+    // Если нет изображения - показываем плейсхолдер
+    if (!currentImage) {
+        imageContainer.innerHTML = `
+            <div class="loading-placeholder">
+                <div class="loading-spinner"></div>
+                <p>Ожидание полярной диаграммы...</p>
+            </div>
+        `;
+    }
+    updateInfo.textContent = 'Подключение...';
     updateInfo.style.color = '#aaa';
 }
 
@@ -71,20 +72,18 @@ function connect() {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/polar`;
     
-    updateStatus('Connecting to WebSocket...', false);
+    updateStatus('Подключение к вебсокету...', false);
     showLoading();
     
     ws = new WebSocket(wsUrl);
     
     ws.onopen = () => {
-        console.log('Polar WebSocket connected');
         updateConnectionStatus(true);
-        updateStatus('✅ Connected to polar diagram server', true);
+        updateStatus('Подключены к серверу', true);
         reconnectAttempts = 0;
     };
     
     ws.onmessage = (event) => {
-        console.log('Received polar message');
         
         try {
             const data = JSON.parse(event.data);
@@ -98,14 +97,14 @@ function connect() {
             }
         } catch (error) {
             console.error('Error parsing message:', error);
-            updateStatus('❌ Error parsing polar data', false);
+            updateStatus('Ошибка при попытке прочитать сообщение сервера', false);
         }
     };
     
     ws.onerror = (error) => {
         console.error('WebSocket error:', error);
         updateConnectionStatus(false);
-        updateStatus('❌ WebSocket error occurred', false);
+        updateStatus('Ошибка Вебсокета', false);
     };
     
     ws.onclose = () => {
@@ -122,7 +121,7 @@ function scheduleReconnect() {
     const delay = Math.min(5000 * Math.pow(2, reconnectAttempts), 30000);
     reconnectAttempts++;
     
-    updateStatus(`Reconnecting in ${delay/1000}s...`, false);
+    updateStatus(`Переподключение через ${delay/1000}с...`, false);
     
     reconnectTimeout = setTimeout(() => {
         console.log(`Reconnecting polar... Attempt ${reconnectAttempts}`);
@@ -146,18 +145,15 @@ function goToData() {
 
 // Инициализация
 function init() {
-    // Кнопка навигации
     const gotoDataBtn = document.getElementById('gotoDataBtn');
     
     if (gotoDataBtn) {
         gotoDataBtn.addEventListener('click', goToData);
     }
     
-    // Запускаем WebSocket соединение
     connect();
 }
 
-// Clean up on page unload
 window.addEventListener('beforeunload', () => {
     if (ws) {
         ws.close();
@@ -167,5 +163,4 @@ window.addEventListener('beforeunload', () => {
     }
 });
 
-// Запуск
 init();
