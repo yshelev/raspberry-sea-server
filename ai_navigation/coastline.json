@@ -1,0 +1,21 @@
+{
+  "type": "raster",
+  "mask_file": "land_mask.png",
+  "bbox": {
+    "min_lat": 42.5,
+    "min_lon": 131.35,
+    "max_lat": 43.3,
+    "max_lon": 133.0
+  },
+  "geo": {
+    "nw_lat": 43.32517767999295,
+    "nw_lon": 131.30859375,
+    "se_lat": 42.42345651793831,
+    "se_lon": 133.06640625,
+    "width_px": 2560,
+    "height_px": 1792,
+    "zoom": 11
+  },
+  "water_value": 255,
+  "land_value": 0
+}

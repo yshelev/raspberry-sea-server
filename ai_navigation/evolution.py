@@ -7,8 +7,9 @@ from pathlib import Path
 
 import numpy as np
 
-from simulator import SailboatSimulator, WindModel
+from simulator import SailboatSimulator, WindModel, LandMask
 from polar_diagram import racing_polar
+
 
 CONFIG = {
     # Amur Bay, Vladivostok
@@ -39,7 +40,7 @@ CONFIG = {
         # (   0,  -8),
     ],
 
-    "generations":       50,
+    "generations":       35,
     "population_size":   80,
     "elite_count":       10,
     "tournament_k":      5,
@@ -48,11 +49,13 @@ CONFIG = {
     "crossover_prob":    0.6,
     "max_steps":         15_000,
 
-    "input_size":  7,
+    "input_size":  8,
     "hidden_size": 8,
     "output_size": 1,
 
     "save_dir": ".",
+
+    "land_mask_path": "coastline.json",
 }
 
 
@@ -137,7 +140,8 @@ class NeuralNetwork:
 
 
 def _run_episode(net: NeuralNetwork, cfg: dict,
-                 wind_twd: float, wind_tws: float) -> tuple[float, int, int]:
+                 wind_twd: float, wind_tws: float,
+                 land_mask: LandMask | None = None) -> tuple[float, int, int]:
     wind_model = WindModel(
         base_twd=wind_twd,
         base_tws=wind_tws,
@@ -147,7 +151,11 @@ def _run_episode(net: NeuralNetwork, cfg: dict,
         tws_alpha=cfg.get("wind_tws_alpha", 0.05),
     )
 
-    sim = SailboatSimulator(polar_function=racing_polar, wind_model=wind_model)
+    sim = SailboatSimulator(
+        polar_function=racing_polar,
+        wind_model=wind_model,
+        land_mask=land_mask,
+    )
     sim.reset(
         start_lat=cfg["start_lat"],
         start_lon=cfg["start_lon"],
@@ -167,7 +175,9 @@ def _run_episode(net: NeuralNetwork, cfg: dict,
 
     return total_reward, sim._checkpoints_passed, sim.time_sec
 
-def evaluate(net: NeuralNetwork, cfg: dict) -> tuple[float, int, int]:
+
+def evaluate(net: NeuralNetwork, cfg: dict,
+             land_mask: LandMask | None = None) -> tuple[float, int, int]:
     base_twd = cfg["wind_twd"]
     base_tws = cfg["wind_tws"]
     scenarios = cfg.get("eval_scenarios", [(0, 0)])
@@ -179,7 +189,7 @@ def evaluate(net: NeuralNetwork, cfg: dict) -> tuple[float, int, int]:
         twd = (base_twd + delta_twd) % 360
         tws = float(np.clip(base_tws + delta_tws, 4.0, 30.0))
 
-        reward, cp, t = _run_episode(net, cfg, twd, tws)
+        reward, cp, t = _run_episode(net, cfg, twd, tws, land_mask=land_mask)
         rewards.append(reward)
 
         if i == 0:
@@ -187,10 +197,12 @@ def evaluate(net: NeuralNetwork, cfg: dict) -> tuple[float, int, int]:
 
     return float(np.mean(rewards)), base_cp, base_time
 
+
 def tournament_select(population: list, fitnesses: list, k: int) -> NeuralNetwork:
     idxs = random.sample(range(len(population)), min(k, len(population)))
     best = max(idxs, key=lambda i: fitnesses[i])
     return population[best]
+
 
 def evolve(cfg: dict = CONFIG) -> NeuralNetwork:
     save_dir = Path(cfg["save_dir"])
@@ -204,10 +216,18 @@ def evolve(cfg: dict = CONFIG) -> NeuralNetwork:
     cross_prob = cfg["crossover_prob"]
     generations = cfg["generations"]
 
-    population = [
+    population = list(
         NeuralNetwork(cfg["input_size"], cfg["hidden_size"], cfg["output_size"])
         for _ in range(pop_size)
-    ]
+    )
+
+    land_mask = None
+    mask_path = cfg.get("land_mask_path")
+    if mask_path:
+        try:
+            land_mask = LandMask(mask_path)
+        except FileNotFoundError:
+            print(f"Land mask not found: {mask_path}")
 
     best_ever: NeuralNetwork | None = None
     best_ever_fitness = float("-inf")
@@ -223,6 +243,7 @@ def evolve(cfg: dict = CONFIG) -> NeuralNetwork:
     n_sc = len(cfg.get("eval_scenarios", [(0,0)]))
     print(f"  Scenarios:   {n_sc} per agent  (fitness = mean)")
     print(f"  Checkpoints: {n_cp}  |  Max steps: {cfg['max_steps']}")
+    print(f"  Land mask:   {'enabled ' + mask_path if land_mask else 'disabled'}")
     print("=" * 70)
 
     train_start = time.time()
@@ -230,7 +251,7 @@ def evolve(cfg: dict = CONFIG) -> NeuralNetwork:
     for gen in range(generations):
         gen_start = time.time()
 
-        results = [evaluate(net, cfg) for net in population]
+        results = [evaluate(net, cfg, land_mask=land_mask) for net in population]
         fitnesses   = [r[0] for r in results]
         checkpoints = [r[1] for r in results]
         times       = [r[2] for r in results]
@@ -303,15 +324,29 @@ def evolve(cfg: dict = CONFIG) -> NeuralNetwork:
 
     return best_ever
 
+
+def _load_mask(cfg: dict) -> "LandMask | None":
+    mask_path = cfg.get("land_mask_path")
+    if not mask_path:
+        return None
+    try:
+        return LandMask(mask_path)
+    except FileNotFoundError:
+        print(f"Land mask not found: {mask_path}")
+        return None
+
+
 def test_network(path: str = "best_network.json", cfg: dict = CONFIG, n_runs: int = 5):
     net = NeuralNetwork.load(path)
     n_cp = len(cfg["checkpoints"])
+    land_mask = _load_mask(cfg)
 
-    print(f"\nТестирование {path} ({n_runs} запусков):")
+    print(f"\Testing {path} ({n_runs} runs):")
     print("-" * 50)
 
     for i in range(n_runs):
-        fitness, cp, t = _run_episode(net, cfg, cfg["wind_twd"], cfg["wind_tws"])
+        fitness, cp, t = _run_episode(net, cfg, cfg["wind_twd"], cfg["wind_tws"],
+                                      land_mask=land_mask)
         status = "✅" if cp >= n_cp else f"cp={cp}/{n_cp}"
         print(f"  Run {i+1}: fitness={fitness:.1f}  time={t}s ({t/60:.1f}min)  {status}")
 
@@ -319,6 +354,7 @@ def test_network(path: str = "best_network.json", cfg: dict = CONFIG, n_runs: in
 def cross_validate(path: str = "best_network.json", cfg: dict = CONFIG):
     net = NeuralNetwork.load(path)
     n_cp = len(cfg["checkpoints"])
+    land_mask = _load_mask(cfg)
 
     print("\nCross validation by wind conditions:")
     print("-" * 50)
@@ -335,9 +371,10 @@ def cross_validate(path: str = "best_network.json", cfg: dict = CONFIG):
     ]
 
     for label, tws, twd in tests:
-        fitness, cp, t = _run_episode(net, static_cfg, twd, tws)
+        fitness, cp, t = _run_episode(net, static_cfg, twd, tws, land_mask=land_mask)
         status = "✅" if cp >= n_cp else f"cp={cp}/{n_cp}"
         print(f"  {label:25s}: fit={fitness:8.1f}  t={t:6.0f}s  {status}")
+
 
 def _save_history(history, save_dir: Path):
     import csv
