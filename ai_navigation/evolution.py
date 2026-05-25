@@ -13,42 +13,71 @@ from polar_diagram import racing_polar
 
 CONFIG = {
     # Amur Bay, Vladivostok
-    "start_lat":  43.109061,
-    "start_lon":  131.865189,
+    # "start_lat":  43.109061,
+    # "start_lon":  131.865189,
+    # "checkpoints": [
+    #     (43.109061, 131.865189),
+    #     (43.105771, 131.854926),
+    #     (43.099269, 131.846082),
+    #     (43.105075, 131.836234),
+    #     (43.108750, 131.847743),
+    #     (43.110079, 131.862413),
+    # ],
+
+    # "wind_tws": 16.0,
+    # "wind_twd": 90.0,
+
+    # "wind_twd_sigma": 4.0,
+    # "wind_tws_sigma": 0.8,
+    # "wind_twd_alpha": 0.03,
+    # "wind_tws_alpha": 0.05,
+
+    # "eval_scenarios": [
+    #     (   0,   0),
+    #     ( +45,  +4),
+    #     ( -45,  -4),
+    #     (+135,   0),
+    #     (   0,  -8),
+    # ],
+
+    "start_lat":  43.085,
+    "start_lon":  131.868,
+
     "checkpoints": [
-        (43.109061, 131.865189),
-        (43.105771, 131.854926),
-        (43.099269, 131.846082),
-        (43.105075, 131.836234),
-        (43.108750, 131.847743),
-        (43.110079, 131.862413),
+        (43.085,  131.868),
+        (43.058,  131.932),
+        (43.063203, 131.871463),
+        (43.085,  131.868),
     ],
 
     "wind_tws": 16.0,
-    "wind_twd": 90.0,
+    "wind_twd": 127.0,
 
-    "wind_twd_sigma": 4.0,
-    "wind_tws_sigma": 0.8,
+    "wind_twd_sigma": 6.0,
+    "wind_tws_sigma": 1.5,
     "wind_twd_alpha": 0.03,
     "wind_tws_alpha": 0.05,
 
     "eval_scenarios": [
-        (   0,   0),
-        # ( +45,  +4),
-        # ( -45,  -4),
-        # (+135,   0),
-        # (   0,  -8),
+        (0,    0),
+        (+20, +2),
+        (-20, -2),
+        (+45,  0),
+        (-45,  0),
+        (+90, +4),
+        (-90, -4),
+        (180,  0),
     ],
 
-    "generations":       35,
-    "population_size":   80,
-    "elite_count":       10,
-    "tournament_k":      5,
-    "mutation_rate":     0.15,
+    "generations":      100,
+    "population_size":   50,
+    "elite_count":       8,
+    "tournament_k":       5,
+    "mutation_rate":    0.15,
     "mutation_strength": 0.4,
     "crossover_prob":    0.6,
-    "max_steps":         15_000,
-
+    "max_steps":      15_000,
+ 
     "input_size":  8,
     "hidden_size": 8,
     "output_size": 1,
@@ -285,7 +314,7 @@ def evolve(cfg: dict = CONFIG) -> NeuralNetwork:
 
         if len(history) >= 30:
             recent = [h[1] for h in history[-30:]]
-            if max(recent) - min(recent) < 200 and best_cp >= n_cp:
+            if max(recent) - min(recent) < 500 and best_cp >= n_cp:
                 print(f"\nFitness stabilized. Stop.")
                 break
 
@@ -341,7 +370,7 @@ def test_network(path: str = "best_network.json", cfg: dict = CONFIG, n_runs: in
     n_cp = len(cfg["checkpoints"])
     land_mask = _load_mask(cfg)
 
-    print(f"\Testing {path} ({n_runs} runs):")
+    print(f"Testing {path} ({n_runs} runs):")
     print("-" * 50)
 
     for i in range(n_runs):
@@ -363,11 +392,27 @@ def cross_validate(path: str = "best_network.json", cfg: dict = CONFIG):
 
     tests = [
         ("Train wind", cfg["wind_tws"], cfg["wind_twd"]),
-        ("Weak wind",        8.0,  cfg["wind_twd"]),
-        ("High wind",      22.0,  cfg["wind_twd"]),
-        ("TWD +45°",            cfg["wind_tws"],        (cfg["wind_twd"] + 45) % 360),
-        ("TWD -45°",            cfg["wind_tws"],        (cfg["wind_twd"] - 45) % 360),
-        ("TWD +135°",           cfg["wind_tws"],        (cfg["wind_twd"] + 135) % 360),
+        ("Very weak wind (2 kn)",   2.0,  cfg["wind_twd"]),
+        ("Weak wind (6 kn)",        6.0,  cfg["wind_twd"]),
+        ("Light wind (10 kn)",     10.0,  cfg["wind_twd"]),
+        ("Moderate wind (14 kn)",  14.0,  cfg["wind_twd"]),
+        ("Strong wind (22 kn)",    22.0,  cfg["wind_twd"]),
+        ("Very strong wind (28 kn)",28.0,  cfg["wind_twd"]),
+        ("Storm wind (35 kn)",     35.0,  cfg["wind_twd"]),
+
+        ("TWD +15°",  cfg["wind_tws"], (cfg["wind_twd"] + 15) % 360),
+        ("TWD +30°",  cfg["wind_tws"], (cfg["wind_twd"] + 30) % 360),
+        ("TWD +45°",  cfg["wind_tws"], (cfg["wind_twd"] + 45) % 360),
+        ("TWD +60°",  cfg["wind_tws"], (cfg["wind_twd"] + 60) % 360),
+        ("TWD +90°",  cfg["wind_tws"], (cfg["wind_twd"] + 90) % 360),
+        ("TWD +135°", cfg["wind_tws"], (cfg["wind_twd"] + 135) % 360),
+        ("TWD +180°", cfg["wind_tws"], (cfg["wind_twd"] + 180) % 360),
+        ("TWD -15°",  cfg["wind_tws"], (cfg["wind_twd"] - 15) % 360),
+        ("TWD -30°",  cfg["wind_tws"], (cfg["wind_twd"] - 30) % 360),
+        ("TWD -45°",  cfg["wind_tws"], (cfg["wind_twd"] - 45) % 360),
+        ("TWD -60°",  cfg["wind_tws"], (cfg["wind_twd"] - 60) % 360),
+        ("TWD -90°",  cfg["wind_tws"], (cfg["wind_twd"] - 90) % 360),
+        ("TWD -135°", cfg["wind_tws"], (cfg["wind_twd"] - 135) % 360),
     ]
 
     for label, tws, twd in tests:

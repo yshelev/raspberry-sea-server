@@ -1,5 +1,6 @@
 import json
 import math
+import random
 import numpy as np
 from PIL import Image
 
@@ -84,7 +85,8 @@ class WindModel:
 
 
 class SailboatSimulator:
-    LAND_STUCK_LIMIT = 60
+
+    LAND_STUCK_LIMIT = 600
 
     def __init__(self, polar_function,
                  wind_model: WindModel | None = None,
@@ -181,6 +183,13 @@ class SailboatSimulator:
             self.speed_knots = 0.0
             land_hit = True
             self._land_stuck_counter += 1
+
+            if self._land_stuck_counter % 10 == 0:
+                attempt = self._land_stuck_counter // 10
+                base_turn = (attempt * 40) % 360
+                jitter = random.uniform(-20, 20)
+                self.heading = (self.heading + base_turn + jitter) % 360
+
             if self._land_stuck_counter >= self.LAND_STUCK_LIMIT:
                 self.done = True
         else:
@@ -203,8 +212,7 @@ class SailboatSimulator:
 
     def _compute_reward(self, checkpoint_hit: bool, land_hit: bool) -> float:
         if land_hit:
-            stuck_penalty = -5.0 * min(self._land_stuck_counter, 10)
-            return -25.0 + stuck_penalty
+            return -5.0 - min(self._land_stuck_counter * 0.1, 10.0)
 
         if self.done and self.current_target_idx >= len(self.checkpoints):
             return 2000.0 + (self.max_steps - self.time_sec) * 0.5

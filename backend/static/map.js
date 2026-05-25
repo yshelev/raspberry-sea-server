@@ -689,3 +689,154 @@ async function main() {
 }
 
 main();
+
+let currentWindTwd = null;
+let currentWindTws = null;
+let aiTrajectoryFeature = null;
+let aiHeadingMarker = null;
+
+window.clearAiRoute = function() {
+    if (aiTrajectoryFeature && map) { 
+        try { map.removeChild(aiTrajectoryFeature); } catch(e) {}
+        aiTrajectoryFeature = null; 
+    }
+    if (aiHeadingMarker && map) { 
+        try { map.removeChild(aiHeadingMarker); } catch(e) {}
+        aiHeadingMarker = null; 
+    }
+    const panel = document.getElementById('aiResultPanel');
+    if (panel) panel.style.display = 'none';
+};
+
+window.drawAiTrajectory = function(trajectory, recommendedHeading) {
+    if (!map) return;
+    window.clearAiRoute();
+    if (!trajectory || trajectory.length < 2) return;
+
+    aiTrajectoryFeature = new ymaps3.YMapFeature({
+        id: 'ai-trajectory',
+        geometry: {
+            type: 'LineString',
+            coordinates: trajectory.map(([lat, lon]) => [lon, lat])
+        },
+        style: { stroke: [{ width: 3, color: '#4ade80', opacity: 0.85, dasharray: '8 5' }] }
+    });
+    map.addChild(aiTrajectoryFeature);
+
+    if (recommendedHeading !== null && trajectory.length > 0) {
+        const [startLat, startLon] = trajectory[0];
+        const el = document.createElement('div');
+        el.style.cssText = 'position:relative; pointer-events:none;';
+        el.innerHTML = `
+            <div style="transform:rotate(${recommendedHeading}deg);filter:drop-shadow(0 0 5px #4ade80);">
+                <svg width="44" height="44" viewBox="0 0 44 44">
+                    <polygon points="22,3 32,36 22,29 12,36" fill="#4ade80" opacity="0.95"/>
+                    <circle cx="22" cy="22" r="3" fill="#fff"/>
+                </svg>
+            </div>
+            <div style="position:absolute;top:46px;left:50%;transform:translateX(-50%);
+                background:rgba(0,0,0,0.75);color:#4ade80;font:bold 11px monospace;
+                padding:2px 7px;border-radius:5px;white-space:nowrap;border:1px solid #4ade80;">
+                ${Math.round(recommendedHeading)}°
+            </div>`;
+        aiHeadingMarker = new ymaps3.YMapMarker(
+            { coordinates: [startLon, startLat], anchor: [0.5, 0.5] },
+            el
+        );
+        map.addChild(aiHeadingMarker);
+    }
+};
+
+window.showAiResultPanel = function(result) {
+    const panel = document.getElementById('aiResultPanel');
+    if (!panel) return;
+    const cp = result.checkpoints_reachable;
+    const total = result.total_checkpoints;
+    const allOk = cp >= total;
+    panel.innerHTML = `
+        <div class="ai-result-panel__header">
+            <span>🤖 AI Маршрут</span>
+            <button class="ai-result-panel__close" onclick="window.clearAiRoute()">✕</button>
+        </div>
+        <div class="ai-result-panel__grid">
+            <span class="ai-result-panel__label">Курс</span>
+            <span class="ai-result-panel__value">${result.recommended_heading !== null ? Math.round(result.recommended_heading) + '°' : '—'}</span>
+            <span class="ai-result-panel__label">Время</span>
+            <span class="ai-result-panel__value">${result.estimated_time_min} мин</span>
+            <span class="ai-result-panel__label">Точки</span>
+            <span class="ai-result-panel__value" style="color:${allOk ? 'var(--value-color)' : '#ffd43b'}">${allOk ? '✅' : '⚠️'} ${cp}/${total}</span>
+            <span class="ai-result-panel__label">Ветер</span>
+            <span class="ai-result-panel__value">${result.wind_tws?.toFixed(1) ?? '—'} кн / ${result.wind_twd !== undefined ? Math.round(result.wind_twd) + '°' : '—'}</span>
+        </div>`;
+    panel.style.display = 'block';
+};
+
+window.requestAiRoute = async function() {
+    if (!waypointsList || waypointsList.length < 2) {
+        alert('Добавьте минимум 2 точки маршрута на карту');
+        return;
+    }
+    const btn = document.getElementById('aiRouteBtn');
+    const originalText = btn ? btn.textContent : 'AI Маршрут';
+    if (btn) { btn.textContent = 'Расчёт...'; btn.disabled = true; }
+
+    try {
+        const body = {
+            checkpoints: waypointsList.map(wp => ({ lat: wp.lat, lon: wp.lon })),
+            wind_twd: currentWindTwd,
+            wind_tws: currentWindTws,
+        };
+        const resp = await fetch('/api/ai-route', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const result = await resp.json();
+        if (result.error) { alert('AI: ' + result.error); return; }
+        window.drawAiTrajectory(result.trajectory, result.recommended_heading);
+        window.showAiResultPanel(result);
+    } catch (e) {
+        console.error('AI route error:', e);
+        alert('Ошибка запроса AI-маршрута. Проверь консоль.');
+    } finally {
+        if (btn) { btn.textContent = originalText; btn.disabled = false; }
+    }
+};
+
+(function patchWebSocketForAI() {
+    let checkCount = 0;
+    const interval = setInterval(() => {
+        if (ws && ws._aiPatched !== true) {
+            ws._aiPatched = true;
+            const originalOnMessage = ws.onmessage;
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    if (data.type === 'true_wind') {
+                        if (data.data.twd !== undefined) currentWindTwd = data.data.twd;
+                        if (data.data.tws !== undefined) currentWindTws = data.data.tws;
+                        console.log(`AI получил данные ветра: ${currentWindTws} узлов, направление ${currentWindTwd}°`);
+                    }
+                } catch (e) {}
+                if (originalOnMessage) originalOnMessage.call(ws, event);
+            };
+            clearInterval(interval);
+            console.log('AI WebSocket патч успешно установлен');
+        }
+        checkCount++;
+        if (checkCount > 100) clearInterval(interval);
+    }, 200);
+})();
+
+setTimeout(() => {
+    const aiBtn = document.getElementById('aiRouteBtn');
+    if (aiBtn) {
+        const newAiBtn = aiBtn.cloneNode(true);
+        aiBtn.parentNode.replaceChild(newAiBtn, aiBtn);
+        newAiBtn.addEventListener('click', window.requestAiRoute);
+        console.log('AI кнопка активирована');
+    } else {
+        console.log('AI кнопка не найдена');
+    }
+}, 1500);

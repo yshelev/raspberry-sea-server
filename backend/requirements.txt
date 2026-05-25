@@ -6,3 +6,6 @@ asyncpg
 matplotlib
 scipy
 httpx
+requests
+pillow
+numpy
