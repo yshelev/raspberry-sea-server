@@ -3,279 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Polar Diagram Viewer</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
-        }
-
-        .container {
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 20px;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
-            padding: 20px;
-            max-width: 800px;
-            width: 100%;
-        }
-
-        h1 {
-            text-align: center;
-            color: #1e3c72;
-            margin-bottom: 10px;
-            font-size: 24px;
-        }
-
-        .subtitle {
-            text-align: center;
-            color: #666;
-            margin-bottom: 20px;
-            font-size: 14px;
-        }
-
-        .image-container {
-            background: #f5f5f5;
-            border-radius: 10px;
-            padding: 20px;
-            text-align: center;
-            min-height: 500px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            border: 2px dashed #ccc;
-        }
-
-        .image-container img {
-            max-width: 100%;
-            height: auto;
-            border-radius: 8px;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-        }
-
-        .status {
-            margin-top: 20px;
-            padding: 10px;
-            border-radius: 8px;
-            text-align: center;
-            font-size: 14px;
-        }
-
-        .status.connected {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-
-        .status.disconnected {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-
-        .status.connecting {
-            background: #fff3cd;
-            color: #856404;
-            border: 1px solid #ffeeba;
-        }
-
-        .info {
-            margin-top: 15px;
-            padding: 10px;
-            background: #e7f3ff;
-            border-radius: 8px;
-            font-size: 12px;
-            color: #004085;
-            text-align: center;
-        }
-
-        .loading {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #3498db;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        button {
-            margin-top: 15px;
-            padding: 10px 20px;
-            background: #dc3545;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 14px;
-            width: 100%;
-        }
-
-        button:hover {
-            background: #c82333;
-        }
-    </style>
+    <title>Полярная диаграмма</title>
+    <link rel="stylesheet" href="static/polar.css">
+    <link rel="icon" type="image/png" href="/static/favicon.png">
 </head>
 <body>
-    <div class="container">
-        <h1>📊 Polar Diagram Viewer</h1>
-        <div class="subtitle">Real-time polar diagram updates via WebSocket</div>
-        
-        <div class="image-container" id="imageContainer">
-            <div style="text-align: center;">
-                <div class="loading"></div>
-                <p style="margin-top: 10px; color: #666;">Waiting for polar diagram...</p>
-            </div>
-        </div>
-        
-        <div class="status" id="status">Connecting...</div>
-        <div class="info" id="info">
-            📡 WebSocket: /polar<br>
-            🔄 Auto-updates when new polar diagram is generated
-        </div>
-        <button onclick="reconnect()">🔄 Reconnect</button>
+    <div class="theme-toggle">
+        <button class="theme-btn" id="themeBtn">🌙</button>
     </div>
 
-    <script>
-        let ws = null;
-        let reconnectAttempts = 0;
-        let reconnectTimeout = null;
+    <div class="container">
+        <div class="polar-panel">
+            <h3>
+                Полярная диаграмма
+                <span class="status-indicator" id="connectionStatus">✗</span>
+            </h3>
+            <div class="image-container" id="imageContainer">
+                <div class="loading-placeholder">
+                    <div class="loading-spinner"></div>
+                    <p>Ожидание полярной диаграммы...</p>
+                </div>
+            </div>
+            <div class="update-info" id="updateInfo">
+                Последнее обновление диаграммы: —
+            </div>
+        </div>
 
-        function connect() {
-            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsUrl = `${protocol}//${window.location.host}/polar`;
-            
-            updateStatus('connecting', 'Connecting to WebSocket...');
-            
-            ws = new WebSocket(wsUrl);
-            
-            ws.onopen = () => {
-                console.log('WebSocket connected');
-                updateStatus('connected', '✅ Connected to polar diagram server');
-                reconnectAttempts = 0;
-            };
-            
-            ws.onmessage = (event) => {
-                console.log('Received message:', event.data);
-                
-                try {
-                    const data = JSON.parse(event.data);
-                    
-                    if (data.type === 'polar_image' && data.data) {
-                        displayImage(data.data);
-                    } else if (data.type === 'polar_diagram' && data.data) {
-                        displayImage(data.data);
-                    } else {
-                        console.log('Unknown message type:', data);
-                    }
-                } catch (error) {
-                    console.error('Error parsing message:', error);
-                }
-            };
-            
-            ws.onerror = (error) => {
-                console.error('WebSocket error:', error);
-                updateStatus('disconnected', '❌ WebSocket error occurred');
-            };
-            
-            ws.onclose = () => {
-                console.log('WebSocket disconnected');
-                updateStatus('disconnected', '❌ Disconnected from server');
-                scheduleReconnect();
-            };
-        }
-        
-        function displayImage(base64Data) {
-            const imageContainer = document.getElementById('imageContainer');
-            const img = document.createElement('img');
-            
-            img.onload = () => {
-                // Очищаем контейнер и добавляем новое изображение
-                imageContainer.innerHTML = '';
-                imageContainer.appendChild(img);
-                
-                // Добавляем время обновления
-                const updateTime = document.createElement('div');
-                updateTime.style.marginTop = '10px';
-                updateTime.style.fontSize = '12px';
-                updateTime.style.color = '#666';
-                updateTime.innerHTML = `Last update: ${new Date().toLocaleTimeString()}`;
-                imageContainer.appendChild(updateTime);
-            };
-            
-            img.onerror = () => {
-                imageContainer.innerHTML = '<p style="color: red;">❌ Failed to load image</p>';
-            };
-            
-            img.src = `data:image/png;base64,${base64Data}`;
-            img.alt = 'Polar Diagram';
-        }
-        
-        function updateStatus(status, message) {
-            const statusDiv = document.getElementById('status');
-            statusDiv.className = `status ${status}`;
-            statusDiv.textContent = message;
-            
-            if (status === 'connected') {
-                statusDiv.style.background = '#d4edda';
-                statusDiv.style.color = '#155724';
-            } else if (status === 'disconnected') {
-                statusDiv.style.background = '#f8d7da';
-                statusDiv.style.color = '#721c24';
-            } else {
-                statusDiv.style.background = '#fff3cd';
-                statusDiv.style.color = '#856404';
-            }
-        }
-        
-        function scheduleReconnect() {
-            if (reconnectTimeout) clearTimeout(reconnectTimeout);
-            
-            const delay = Math.min(5000 * Math.pow(2, reconnectAttempts), 30000);
-            reconnectAttempts++;
-            
-            reconnectTimeout = setTimeout(() => {
-                console.log(`Reconnecting... Attempt ${reconnectAttempts}`);
-                connect();
-            }, delay);
-        }
-        
-        function reconnect() {
-            if (reconnectTimeout) clearTimeout(reconnectTimeout);
-            if (ws) {
-                ws.close();
-            }
-            reconnectAttempts = 0;
-            connect();
-        }
-        
-        // Start connection when page loads
-        connect();
-        
-        // Clean up on page unload
-        window.addEventListener('beforeunload', () => {
-            if (ws) {
-                ws.close();
-            }
-            if (reconnectTimeout) {
-                clearTimeout(reconnectTimeout);
-            }
-        });
-    </script>
+        <div class="nav-buttons">
+            <button id="gotoDataBtn" class="nav-button">Данные</button>
+        </div>
+    </div>
+
+    <script src="static/polar.js"></script>
 </body>
 </html>

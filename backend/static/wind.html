@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/png" href="/static/favicon.png">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+    <title>Azimut - Wind Dashboard</title>
+    <link rel="stylesheet" href="static/wind.css">
+</head>
+<body>
+    <div class="theme-toggle">
+        <button class="theme-btn" id="themeBtn">🌙</button>
+    </div>
+
+    <div class="app">
+        <div class="compass-container">
+            <canvas id="windCompass" width="400" height="400"></canvas>
+        </div>
+
+        <div class="wind-panel">
+            <div class="wind-item">
+                <div class="wind-label">TWA</div>
+                <div class="wind-value" id="twa">—°</div>
+                <div class="wind-unit">Угол ветра</div>
+            </div>
+            <div class="wind-item">
+                <div class="wind-label">TWD</div>
+                <div class="wind-value" id="twd">—°</div>
+                <div class="wind-unit">Направление</div>
+            </div>
+            <div class="wind-item">
+                <div class="wind-label">SPEED</div>
+                <div class="wind-value" id="boatSpeed">—</div>
+                <div class="wind-unit">Узлов</div>
+            </div>
+        </div>
+
+        <div class="buttons">
+            <button class="btn" id="dataPageBtn">ДАННЫЕ</button>
+        </div>
+    </div>
+
+    <script src="static/wind.js"></script>
+</body>
+</html>

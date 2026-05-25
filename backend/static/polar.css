@@ -1,0 +1,288 @@
+/* === CSS Variables for theming === */
+:root {
+    /* Dark theme (default) */
+    --bg-primary: #1a1a2e;
+    --bg-secondary: rgba(0, 0, 0, 0.8);
+    --text-primary: #eee;
+    --text-secondary: #aaa;
+    --border-color: rgba(255, 255, 255, 0.2);
+    --border-bottom: rgba(255, 255, 255, 0.3);
+    --value-color: #4ade80;
+    --status-connected: #4ade80;
+    --status-disconnected: #ff4444;
+    --button-bg: #4ade80;
+    --button-hover: #69db7c;
+    --button-text: #1a1a2e;
+    --panel-blur: blur(10px);
+    --image-bg: rgba(255, 255, 255, 0.05);
+    --image-border: rgba(255, 255, 255, 0.15);
+    --update-bg: rgba(74, 222, 128, 0.1);
+    --update-border: rgba(74, 222, 128, 0.3);
+    --update-text: #4ade80;
+    --spinner-border: rgba(255, 255, 255, 0.2);
+    --spinner-top: #4ade80;
+}
+
+body.light {
+    /* Light theme */
+    --bg-primary: #f0f2f5;
+    --bg-secondary: rgba(255, 255, 255, 0.95);
+    --text-primary: #1a1a2e;
+    --text-secondary: #666;
+    --border-color: rgba(0, 0, 0, 0.15);
+    --border-bottom: rgba(0, 0, 0, 0.2);
+    --value-color: #059669;
+    --status-connected: #059669;
+    --status-disconnected: #dc2626;
+    --button-bg: #059669;
+    --button-hover: #10b981;
+    --button-text: white;
+    --panel-blur: blur(10px);
+    --image-bg: rgba(0, 0, 0, 0.05);
+    --image-border: rgba(0, 0, 0, 0.1);
+    --update-bg: rgba(5, 150, 105, 0.1);
+    --update-border: rgba(5, 150, 105, 0.3);
+    --update-text: #059669;
+    --spinner-border: rgba(0, 0, 0, 0.2);
+    --spinner-top: #059669;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, monospace;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    min-height: 100vh;
+    transition: background 0.3s, color 0.3s;
+}
+
+/* Theme toggle button - fixed top left */
+.theme-toggle {
+    position: fixed;
+    top: 16px;
+    left: 16px;
+    z-index: 1100;
+}
+
+.theme-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--bg-secondary);
+    backdrop-filter: var(--panel-blur);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    font-size: 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.theme-btn:hover {
+    transform: scale(1.05);
+}
+
+.container {
+    width: 100%;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 70px 16px 20px 16px;
+}
+
+.polar-panel {
+    background: var(--bg-secondary);
+    backdrop-filter: var(--panel-blur);
+    border-radius: 20px;
+    padding: 20px;
+    margin-bottom: 16px;
+    border: 1px solid var(--border-color);
+}
+
+.polar-panel h3 {
+    margin: 0 0 16px 0;
+    font-size: 18px;
+    font-weight: 600;
+    border-bottom: 1px solid var(--border-bottom);
+    padding-bottom: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.status-indicator {
+    font-size: 20px;
+}
+.status-indicator[data-connected="true"] {
+    color: var(--status-connected);
+}
+.status-indicator[data-connected="false"] {
+    color: var(--status-disconnected);
+}
+
+.image-container {
+    background: var(--image-bg);
+    border-radius: 16px;
+    padding: 20px;
+    text-align: center;
+    min-height: 320px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border: 1px solid var(--image-border);
+    margin-bottom: 16px;
+    transition: background 0.3s, border-color 0.3s;
+}
+
+.image-container img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 12px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+}
+
+.loading-placeholder {
+    text-align: center;
+    color: var(--text-secondary);
+}
+
+.loading-placeholder p {
+    font-size: 14px;
+    margin-top: 12px;
+}
+
+.loading-spinner {
+    display: inline-block;
+    width: 44px;
+    height: 44px;
+    border: 3px solid var(--spinner-border);
+    border-top: 3px solid var(--spinner-top);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.update-info {
+    padding: 12px 16px;
+    background: var(--update-bg);
+    border-radius: 12px;
+    font-size: 12px;
+    color: var(--update-text);
+    text-align: center;
+    font-family: monospace;
+    border: 1px solid var(--update-border);
+    transition: background 0.3s, color 0.3s;
+}
+
+.nav-buttons {
+    margin-top: 8px;
+    width: 100%;
+}
+
+.nav-button {
+    width: 100%;
+    padding: 16px 24px;
+    background: var(--button-bg);
+    border: none;
+    border-radius: 16px;
+    color: var(--button-text);
+    font-weight: bold;
+    font-size: 16px;
+    cursor: pointer;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', monospace;
+    transition: all 0.3s;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    text-align: center;
+    display: block;
+}
+
+.nav-button:hover {
+    background: var(--button-hover);
+    transform: scale(1.02);
+}
+
+/* Мобильные стили */
+@media (max-width: 600px) {
+    .container {
+        padding: 60px 12px 16px 12px;
+    }
+    
+    .theme-toggle {
+        top: 12px;
+        left: 12px;
+    }
+    
+    .theme-btn {
+        width: 40px;
+        height: 40px;
+        font-size: 18px;
+    }
+    
+    .polar-panel {
+        padding: 16px;
+        border-radius: 16px;
+    }
+    
+    .polar-panel h3 {
+        font-size: 16px;
+        margin-bottom: 12px;
+        padding-bottom: 10px;
+    }
+    
+    .image-container {
+        min-height: 280px;
+        padding: 16px;
+        border-radius: 12px;
+    }
+    
+    .loading-placeholder p {
+        font-size: 13px;
+    }
+    
+    .update-info {
+        font-size: 11px;
+        padding: 10px 12px;
+        border-radius: 10px;
+    }
+    
+    .nav-button {
+        padding: 14px 20px;
+        font-size: 14px;
+        border-radius: 14px;
+    }
+}
+
+@media (max-width: 400px) {
+    .container {
+        padding: 56px 10px 12px 10px;
+    }
+    
+    .polar-panel {
+        padding: 14px;
+    }
+    
+    .image-container {
+        min-height: 250px;
+        padding: 12px;
+    }
+    
+    .nav-button {
+        padding: 12px 16px;
+        font-size: 13px;
+    }
+}

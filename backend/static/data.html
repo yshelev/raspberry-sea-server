@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Навигационные данные</title>
+    <link rel="stylesheet" href="static/data.css">
+    <link rel="icon" type="image/png" href="/static/favicon.png">
+</head>
+<body>
+    <div class="theme-toggle">
+        <button class="theme-btn" id="themeBtn">🌙</button>
+    </div>
+
+    <div class="container">
+        <div class="data-panel">
+            <h3>
+                Навигационные данные
+                <span class="status-indicator" id="connectionStatus">✗</span>
+            </h3>
+            <div class="data-row">
+                <span class="label">GPS:</span>
+                <span class="value" id="gpsData">Waiting...</span>
+            </div>
+            <div class="data-row">
+                <span class="label">Ветер:</span>
+                <span class="value" id="windData">Waiting...</span>
+            </div>
+            <div class="data-row">
+                <span class="label">Истинный Ветер:</span>
+                <span class="value" id="trueWindData">Waiting...</span>
+            </div>
+            <div class="data-row">
+                <span class="label">Глубина:</span>
+                <span class="value" id="depthData">Waiting...</span>
+            </div>
+            <div class="data-row">
+                <span class="label">Лаг:</span>
+                <span class="value" id="lagData">Waiting...</span>
+            </div>
+        </div>
+
+        <div class="next-point-panel" id="nextPointPanel">
+            <h3>Информация о следующей точке маршрута</h3>
+            <div class="data-row">
+                <span class="label">Следующая точка:</span>
+                <span class="value" id="nextPointIndex">—</span>
+            </div>
+            <div class="data-row">
+                <span class="label">Дистанция:</span>
+                <span class="value" id="nextPointDistance">—</span>
+            </div>
+            <div class="data-row">
+                <span class="label">Азимут:</span>
+                <span class="value" id="nextPointBearing">—</span>
+            </div>
+        </div>
+
+        <div class="nav-buttons">
+            <button id="gotoMapBtn" class="map-button">Открыть карту</button>
+            <button id="gotoPolarBtn" class="map-button">Полярная диаграмма</button>
+            <button id="gotoWindBtn" class="map-button">Данные ветра</button>
+        </div>
+    </div>
+
+    <script src="static/data.js"></script>
+</body>
+</html>

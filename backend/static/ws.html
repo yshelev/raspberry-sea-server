@@ -1,111 +1,199 @@
 <!DOCTYPE html>
-<html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WS client</title>
+    <title>Azimut - Websocket</title>
+    <link rel="icon" type="image/png" href="/static/favicon.png">
     <style>
         body {
-            font-family: monospace;
-            max-width: 800px;
-            margin: 0 auto;
+            margin: 0;
             padding: 20px;
-            background: #1e1e1e;
-            color: #d4d4d4;
+            font-family: monospace;
+            background: #0a0a0a;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
-        #messages {
-            border: 1px solid #444;
-            height: 400px;
-            overflow-y: auto;
-            padding: 10px;
-            background: #252526;
-            border-radius: 5px;
+        
+        .container {
+            max-width: 900px;
+            width: 100%;
         }
-        .message {
-            padding: 5px;
-            margin: 5px 0;
-            border-bottom: 1px solid #444;
-            font-size: 12px;
+        
+        h1 {
+            color: #4ade80;
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 24px;
+            font-weight: normal;
+            letter-spacing: 1px;
         }
-        .status {
-            padding: 10px;
-            margin-bottom: 10px;
-            border-radius: 5px;
-            font-weight: bold;
+        
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            gap: 20px;
         }
-        .connected {
-            background: #0a5c2e;
-            color: #fff;
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
         }
-        .disconnected {
-            background: #5c0a0a;
-            color: #fff;
-        }
+        
         button {
-            padding: 10px 20px;
-            margin: 5px;
+            padding: 8px 16px;
             cursor: pointer;
-            background: #0e639c;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
             color: white;
-            border: none;
-            border-radius: 3px;
+            border: 1.5px solid rgba(255, 255, 255, 0.2);
+            font-family: monospace;
+            font-size: 13px;
+            border-radius: 10px;
+            transition: all 0.3s;
         }
+        
         button:hover {
-            background: #1177bb;
+            background: rgba(0, 0, 0, 0.9);
+            border-color: #4ade80;
+            color: #4ade80;
         }
-        input {
-            padding: 8px;
-            margin: 5px;
-            width: 300px;
-            background: #3c3c3c;
-            border: 1px solid #555;
-            color: white;
+        
+        .status {
+            padding: 8px 16px;
+            font-size: 13px;
+            font-family: monospace;
+            text-align: center;
+            border-radius: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            border: 1.5px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .status.connected {
+            background: rgba(10, 92, 46, 0.9);
+            color: #4ade80;
+            border-color: #4ade80;
+        }
+        
+        .status.disconnected {
+            background: rgba(92, 10, 10, 0.9);
+            color: #ff6b6b;
+            border-color: #ff6b6b;
+        }
+        
+        #messages {
+            border: 1.5px solid rgba(255, 255, 255, 0.2);
+            height: 375px;
+            overflow-y: auto;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(10px);
+            border-radius: 10px;
+        }
+        
+        #messages::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        #messages::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+        }
+        
+        #messages::-webkit-scrollbar-thumb {
+            background: rgba(74, 222, 128, 0.5);
+            border-radius: 4px;
+        }
+        
+        #messages::-webkit-scrollbar-thumb:hover {
+            background: rgba(74, 222, 128, 0.8);
+        }
+        
+        .message {
+            padding: 10px;
+            margin: 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            font-size: 12px;
+            font-family: monospace;
+        }
+        
+        .message strong {
+            display: inline-block;
+            margin-right: 10px;
+            color: #aaa;
+        }
+        
+        .message pre {
+            margin: 5px 0 0 0;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-family: monospace;
+            font-size: 11px;
+            color: #888;
         }
     </style>
 </head>
 <body>
-    <h1>GPS Data Client</h1>
-    <div id="status" class="status disconnected">Disconnected</div>
-    <div>
-        <button onclick="connect()">Connect</button>
-        <button onclick="disconnect()">Disconnect</button>
-        <button onclick="clearMessages()">Clear</button>
+    <div class="container">
+        <h1>Websocket Monitor</h1>
+        
+        <div class="top-bar">
+            <div class="button-group">
+                <button onclick="connect()">Connect</button>
+                <button onclick="disconnect()">Disconnect</button>
+                <button onclick="clearMessages()">Clear</button>
+            </div>
+            <div id="status" class="status disconnected">Disconnected</div>
+        </div>
+        
+        <div id="messages"></div>
     </div>
-    <div id="messages"></div>
 
     <script>
         let ws = null;
-
+        let messageCounter = 0;
+        
         function connect() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                addMessage('system', 'already connected');
+                return;
+            }
+            
             const wsUrl = `ws://localhost:8000/ws`;
             ws = new WebSocket(wsUrl);
             
             ws.onopen = () => {
-                console.log('Connected');
-                document.getElementById('status').className = 'status connected';
-                document.getElementById('status').textContent = 'Connected ✓';
-                addMessage('System', 'Connected to WebSocket server', '#0a5c2e');
+                const statusDiv = document.getElementById('status');
+                statusDiv.className = 'status connected';
+                statusDiv.textContent = 'Connected ✓';
+                addMessage('system', 'connected to server');
             };
             
             ws.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
-                    addMessage('GPS', JSON.stringify(data, null, 2), '#0e639c');
+                    messageCounter++;
+                    
+                    let displayText = JSON.stringify(data, null, 2);
+                    
+                    addMessage(data.type || 'data', displayText);
                 } catch {
-                    addMessage('GPS', event.data, '#0e639c');
+                    addMessage('data', event.data);
+                    messageCounter++;
                 }
             };
             
-            ws.onerror = (error) => {
-                console.error('WebSocket error:', error);
-                addMessage('Error', 'WebSocket error occurred', '#5c0a0a');
+            ws.onerror = () => {
+                addMessage('error', 'websocket error');
             };
             
             ws.onclose = () => {
-                console.log('Disconnected');
-                document.getElementById('status').className = 'status disconnected';
-                document.getElementById('status').textContent = 'Disconnected ✗';
-                addMessage('System', 'Disconnected from server', '#5c0a0a');
+                const statusDiv = document.getElementById('status');
+                statusDiv.className = 'status disconnected';
+                statusDiv.textContent = 'Disconnected ✗';
+                addMessage('system', 'disconnected from server');
                 ws = null;
             };
         }
@@ -113,27 +201,45 @@
         function disconnect() {
             if (ws) {
                 ws.close();
+            } else {
+                addMessage('system', 'no active connection');
             }
         }
         
-        function addMessage(sender, text, color = '#d4d4d4') {
+        function addMessage(sender, text) {
             const messagesDiv = document.getElementById('messages');
             const messageDiv = document.createElement('div');
             messageDiv.className = 'message';
             const timestamp = new Date().toLocaleTimeString();
-            messageDiv.innerHTML = `<strong style="color: ${color}">[${timestamp}] ${sender}:</strong><br/>${text}`;
+            
+            let formattedText = text;
+            if (typeof text === 'string' && text.length > 500) {
+                formattedText = text.substring(0, 500) + '...';
+            }
+            
+            messageDiv.innerHTML = `<strong>[${timestamp}] ${sender}:</strong><pre>${escapeHtml(formattedText)}</pre>`;
             messagesDiv.appendChild(messageDiv);
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            
+            while (messagesDiv.children.length > 200) {
+                messagesDiv.removeChild(messagesDiv.firstChild);
+            }
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
         }
         
         function clearMessages() {
             document.getElementById('messages').innerHTML = '';
+            messageCounter = 0;
+            addMessage('system', 'messages cleared');
         }
         
-        // Auto-connect on page load
         window.onload = () => {
             setTimeout(connect, 1000);
         };
     </script>
 </body>
-</html>

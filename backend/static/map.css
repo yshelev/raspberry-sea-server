@@ -1,0 +1,357 @@
+/* === CSS Variables for theming === */
+:root {
+    --radar-bg: #1a1a2e;
+    --radar-border: #4ade80;
+    --radar-grid: #2a2a4e;
+    --radar-point: #ffaa00;
+    --panel-bg: rgba(0, 0, 0, 0.85);
+    --panel-blur: blur(15px);
+    --border-color: rgba(255, 255, 255, 0.2);
+    --text-secondary: #aaa;
+    --value-color: #4ade80;
+    --slider-bg: #333;
+    --button-bg: rgba(20, 20, 40, 0.9);
+    --button-border: rgba(74, 222, 128, 0.5);
+    --button-text: #4ade80;
+    --button-hover-bg: #4ade80;
+    --button-hover-text: #1a1a2e;
+}
+
+body.light {
+    --radar-bg: #f0f2f5;
+    --radar-border: #059669;
+    --radar-grid: #e5e7eb;
+    --radar-point: #f59e0b;
+    --panel-bg: rgba(255, 255, 255, 0.95);
+    --panel-blur: blur(15px);
+    --border-color: rgba(0, 0, 0, 0.1);
+    --text-secondary: #6b7280;
+    --value-color: #059669;
+    --slider-bg: #e5e7eb;
+    --button-bg: rgba(255, 255, 255, 0.9);
+    --button-border: rgba(5, 150, 105, 0.5);
+    --button-text: #059669;
+    --button-hover-bg: #059669;
+    --button-hover-text: white;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    font-family: monospace;
+    overflow: hidden;
+    transition: background 0.3s;
+}
+
+#map {
+    width: 100%;
+    height: 100vh;
+}
+
+.theme-toggle {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    z-index: 1100;
+}
+
+.theme-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--panel-bg);
+    backdrop-filter: var(--panel-blur);
+    border: 1px solid var(--border-color);
+    color: var(--button-text);
+    font-size: 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s;
+}
+
+.theme-btn:hover {
+    transform: scale(1.05);
+}
+
+.radar-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100vh;
+    background: var(--radar-bg);
+    z-index: 500;
+    display: none;
+    transition: background 0.3s;
+}
+
+.radar-canvas {
+    position: relative;
+    top: 45%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 60vmin;
+    height: 60vmin;
+    border-radius: 50%;
+    border: 2px solid var(--radar-border);
+    background: var(--radar-bg);
+    overflow: visible;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+    transition: background 0.3s, border-color 0.3s;
+}
+
+.radar-rotation-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    transform-origin: center center;
+    transition: transform 0.3s ease;
+}
+
+.radar-center {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 8px;
+    height: 8px;
+    background: var(--radar-border);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 10;
+}
+
+.radar-points {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.radar-point {
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    background: var(--radar-point);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    transition: all 0.3s;
+    box-shadow: 0 0 12px rgba(255, 170, 0, 0.8);
+    z-index: 20;
+}
+
+.radar-grid {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+}
+
+.radar-grid-circle {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    border: 1px solid var(--radar-grid);
+}
+
+.radar-grid-line {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    width: 1px;
+    height: 100%;
+    background: var(--radar-grid);
+    transform: translateX(-50%);
+}
+
+.radar-grid-line-horizontal {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    width: 100%;
+    height: 1px;
+    background: var(--radar-grid);
+    transform: translateY(-50%);
+}
+
+.radar-direction {
+    position: absolute;
+    top: -20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 8px solid transparent;
+    border-right: 8px solid transparent;
+    border-bottom: 15px solid #ff4444;
+    z-index: 20;
+}
+
+.bottom-panel {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    background: var(--panel-bg);
+    backdrop-filter: var(--panel-blur);
+    border-top: 1px solid var(--border-color);
+    padding: 12px 20px 15px 20px;
+    font-family: monospace;
+    transition: background 0.3s;
+}
+
+.distance-control {
+    margin-bottom: 10px;
+}
+
+.distance-label {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.distance-value {
+    color: var(--value-color);
+    font-weight: bold;
+    font-size: 13px;
+}
+
+input[type="range"] {
+    width: 100%;
+    height: 4px;
+    -webkit-appearance: none;
+    background: var(--slider-bg);
+    border-radius: 2px;
+    outline: none;
+}
+
+input[type="range"]:focus {
+    outline: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--value-color);
+    cursor: pointer;
+    border: none;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+    background: var(--button-hover-bg);
+    transform: scale(1.1);
+}
+
+.button-group {
+    display: flex;
+    gap: 12px;
+    margin-top: 8px;
+}
+
+.control-button {
+    flex: 1;
+    padding: 8px 16px;
+    background: var(--button-bg);
+    border: 1px solid var(--button-border);
+    border-radius: 8px;
+    color: var(--button-text);
+    cursor: pointer;
+    font-family: monospace;
+    font-size: 14px;
+    font-weight: bold;
+    transition: all 0.3s;
+    text-align: center;
+}
+
+.control-button:hover {
+    background: var(--button-hover-bg);
+    color: var(--button-hover-text);
+    border-color: var(--button-hover-bg);
+    transform: translateY(-1px);
+}
+
+.control-button:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* AI кнопка — слегка выделена рамкой, размер как у остальных */
+.control-button--ai {
+    border-color: var(--value-color);
+}
+
+/* AI панель результата */
+.ai-result-panel {
+    position: fixed;
+    bottom: 110px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1050;
+    background: var(--panel-bg);
+    backdrop-filter: var(--panel-blur);
+    border: 1px solid var(--value-color);
+    border-radius: 10px;
+    padding: 12px 14px;
+    min-width: 220px;
+    max-width: 300px;
+    font-family: monospace;
+    font-size: 12px;
+    color: var(--button-text);
+    box-shadow: 0 4px 20px rgba(74, 222, 128, 0.15);
+    animation: aiPanelIn 0.2s ease;
+}
+
+@keyframes aiPanelIn {
+    from { opacity: 0; transform: translateX(-50%) translateY(8px); }
+    to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+.ai-result-panel__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    font-size: 13px;
+    font-weight: bold;
+}
+
+.ai-result-panel__close {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 15px;
+    padding: 0;
+    line-height: 1;
+}
+
+.ai-result-panel__grid {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 5px 12px;
+}
+
+.ai-result-panel__label {
+    color: var(--text-secondary);
+}
+
+.ai-result-panel__value {
+    color: var(--value-color);
+    font-weight: bold;
+    text-align: right;
+}
