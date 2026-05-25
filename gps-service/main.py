@@ -18,7 +18,7 @@ gps_socket.watch()
 
 
 for new_data in gps_socket:
-    if True: # new_data
+    if True: 
         try:
             data_stream.unpack(new_data)
             tpv = data_stream.TPV
